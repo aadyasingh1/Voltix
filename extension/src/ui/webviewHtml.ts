@@ -66,11 +66,15 @@ export function buildAgentHtml(): string {
     .activity-preview{white-space:pre-wrap;overflow-wrap:anywhere;font-size:11.5px;max-height:120px;overflow:hidden;-webkit-mask-image:linear-gradient(#000 75%,transparent)}
     #activity-heading{padding:10px 12px;margin:0}
     .review-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:20px 0 10px}
+    .review-heading>*{min-width:0}
     .review-heading h2{margin:0}
     #review-counts{color:var(--tf-muted);font-size:12px}
     .review-actions{display:flex;gap:8px}
+    .review-actions>*{min-width:0}
     .review-layout{display:grid;grid-template-columns:minmax(150px,240px) minmax(0,1fr);gap:12px;align-items:start}
+    .review-layout>*{min-width:0}
     #file-list{display:flex;flex-direction:column;gap:6px}
+    #file-list>*{min-width:0}
     .file-nav{width:100%;text-align:left;color:var(--vscode-foreground);background:var(--tf-card);border:1px solid var(--tf-border);border-radius:6px;overflow-wrap:anywhere;font-size:12px}
     .file-nav:hover{background:var(--vscode-list-hoverBackground)}
     .file-nav[aria-current="true"]{background:var(--vscode-list-activeSelectionBackground);color:var(--vscode-list-activeSelectionForeground,var(--vscode-foreground));border-color:var(--vscode-focusBorder);box-shadow:inset 3px 0 0 var(--tf-accent)}
@@ -123,6 +127,7 @@ export function buildAgentHtml(): string {
     .verify-card.running,.verify-card.fixing{border-left-color:var(--tf-accent)}
     .verify-steps{list-style:none;margin:0;padding:6px 12px 10px}
     .verify-step{display:grid;grid-template-columns:22px 1fr;gap:6px;padding:5px 0;align-items:start}
+    .verify-step>*{min-width:0}
     .verify-step+.verify-step{border-top:1px dashed var(--tf-border)}
     .step-icon{font-weight:700;text-align:center}
     .step-icon.ok{color:var(--vscode-testing-iconPassed,#3fb950)}
@@ -134,6 +139,7 @@ export function buildAgentHtml(): string {
     .step-output{margin:6px 0 0;max-height:160px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;padding:8px 10px;font-size:11.5px;background:var(--vscode-textCodeBlock-background,var(--vscode-editor-background));border:1px solid var(--tf-border);border-radius:6px}
     @keyframes tfspin{to{transform:rotate(360deg)}}
     .passport-stats{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px 0}
+    .passport-stats>*{min-width:0}
     .passport-table{width:100%;border-collapse:collapse;margin:8px 0 4px;font-size:12px}
     .passport-table th{text-align:left;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--tf-muted);padding:6px 12px;border-bottom:1px solid var(--tf-border)}
     .passport-table td{padding:7px 12px;border-bottom:1px solid var(--tf-border);vertical-align:top}
@@ -153,7 +159,9 @@ export function buildAgentHtml(): string {
     #probe-row .toolbar{margin-bottom:0}
     .card-note{margin:0;padding:8px 12px;color:var(--tf-muted);font-size:12px;border-bottom:1px solid var(--tf-border)}
     .future-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:10px 12px}
+    .future-grid>*{min-width:0}
     .future-card{min-width:0;padding:10px 12px;border:1px solid var(--tf-border);border-radius:6px;background:var(--vscode-editor-background)}
+    .future-card>*{min-width:0}
     .future-card.chosen{border-color:var(--tf-accent);box-shadow:inset 3px 0 0 var(--tf-accent)}
     .future-title{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:6px;font-weight:600}
     .future-letter{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;font-size:11px;font-weight:700;color:var(--vscode-badge-foreground);background:var(--vscode-badge-background)}
@@ -224,15 +232,21 @@ export function buildAgentHtml(): string {
     .run-step.active .run-step-icon{display:inline-block;color:var(--tf-accent);animation:tfspin 1s linear infinite}
     .run-step-time{color:var(--tf-muted);font-size:11px;font-weight:400;font-variant-numeric:tabular-nums}
     .dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin:12px 0}
+    .dash-grid>*{min-width:0}
     .mini-card{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:0 8px;min-width:0;padding:9px 12px;border:1px solid var(--tf-border);border-radius:10px;background:var(--tf-card)}
+    .mini-card>*{min-width:0}
     .mini-card.warning{border-color:var(--tf-warn)}
     .mini-label{grid-column:1/-1;color:var(--tf-muted);font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
     .mini-value{min-width:0;overflow-wrap:anywhere;font-weight:600}
+    .context-budget-card{display:block}
+    #context-summary{display:block;min-width:0;overflow-wrap:anywhere}
+    #context-progress{width:100%;min-width:0}
     .mini-note{grid-column:1/-1;color:var(--tf-muted);font-size:11.5px;overflow-wrap:anywhere}
     .mini-card.warning .mini-note{color:var(--tf-warn)}
     button.link-button{padding:0 4px;color:var(--vscode-textLink-foreground);background:transparent;border:none}
     button.link-button:hover:not(:disabled){background:transparent;text-decoration:underline}
     .verify-hero{display:grid;grid-template-columns:38px minmax(0,1fr);align-items:center;gap:10px;padding:12px}
+    .verify-hero>*{min-width:0}
     .verify-mark{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;color:#fff;background:var(--tf-muted);font-size:18px;font-weight:700}
     .verify-card.passed .verify-mark{background:var(--tf-ok)}
     .verify-card.failed .verify-mark{background:var(--tf-bad)}
@@ -274,7 +288,9 @@ export function buildAgentHtml(): string {
     @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
     .narrow-only{display:none}
     .file-row{display:flex;flex-direction:column;gap:4px}
+    .file-row>*{min-width:0}
     .file-row-actions,.future-file-row,.compare-narrow-row{flex-wrap:wrap;align-items:center;gap:6px}
+    .file-row-actions>*,.future-file-row>*,.compare-narrow-row>*{min-width:0}
     .compare-narrow{flex-direction:column;gap:8px;padding:10px 12px;border-top:1px solid var(--tf-border)}
     .compare-narrow-row{display:flex}
     .future-file-row{display:flex;width:100%}
@@ -289,6 +305,7 @@ export function buildAgentHtml(): string {
       .passport-table th:nth-child(3),.passport-table td:nth-child(3){display:none}
       .passport-table th,.passport-table td{padding:6px 8px}
     }
+    @media(max-width:480px){.dash-grid{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
