@@ -1,4 +1,3 @@
-import * as vscode from 'vscode';
 import type { AgentSurface } from '../ui/surfaceHub';
 import { createSession } from '../agent/session';
 import { processTurn } from '../agent/streamProcessor';
@@ -14,12 +13,14 @@ import type { ChangePassport, PanelOutboundMessage } from '../../../shared/types
 
 type Session = Awaited<ReturnType<typeof createSession>>;
 type Emit = (message: PanelOutboundMessage) => void;
+const RETRY_DELAYS_MS = [800, 1600];
 
 export class AgentMode {
   private client: Session['client'] | undefined;
   private sessionId: string | undefined;
   private sessionModel: string | undefined;
   private cancelled = false;
+  private cancelRetry: (() => void) | undefined;
   lastPassport: ChangePassport | null = null;
 
   constructor(private readonly surface: AgentSurface) {}
@@ -50,37 +51,45 @@ export class AgentMode {
       const isLast = index === chain.length - 1;
       emit({ type: 'model_chain', models: getModelChain(), active: model });
       emit({ type: 'model_info', model, fallbackFrom: index > 0 ? chain[index - 1] : undefined });
-      try {
-        if (!this.client || !this.sessionId || this.sessionModel !== model) {
-          const session = await createSession(model);
-          this.client = session.client;
-          this.sessionId = session.sessionId;
-          this.sessionModel = model;
-          emit({ type: 'session_state', sessionId: this.sessionId });
+      for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+        try {
+          if (!this.client || !this.sessionId || this.sessionModel !== model) {
+            const session = await createSession(model);
+            this.client = session.client;
+            this.sessionId = session.sessionId;
+            this.sessionModel = model;
+            emit({ type: 'session_state', sessionId: this.sessionId });
+          }
+          const result = await processTurn(this.client, this.sessionId!, enriched, emit, () => {
+            emit({ type: 'context_receipt', receipt: context.receipt });
+          }, { deferErrors: true });
+          if (result.status === 'done') {
+            await this.afterTurn(emit, model);
+            return;
+          }
+          if (result.status === 'cancelled') return;
+          lastError = result.message || 'The model returned an error';
+        } catch (error) {
+          lastError = error instanceof Error ? error.message : String(error);
         }
-        const result = await processTurn(this.client, this.sessionId!, enriched, emit, () => {
-          emit({ type: 'context_receipt', receipt: context.receipt });
-        }, { deferErrors: !isLast });
-        if (result.status === 'done') {
-          await this.afterTurn(emit, model);
-          return;
+        if (this.cancelled) return;
+        if (attempt < RETRY_DELAYS_MS.length) {
+          const delay = RETRY_DELAYS_MS[attempt];
+          const retryNumber = attempt + 1;
+          emit({ type: 'text_delta', content: `Retry ${retryNumber} of 2 after ${delay / 1000}s\n` });
+          if (!await this.waitForRetry(delay)) return;
+          continue;
         }
-        if (result.status === 'cancelled') return;
-        lastError = result.message || 'The model returned an error';
-      } catch (error) {
-        lastError = error instanceof Error ? error.message : String(error);
-        if (isLast) throw new Error(`Model "${model}" failed: ${lastError}`);
       }
       if (this.cancelled) return;
-      if (isLast) return;
+      if (isLast) throw new Error(`Model "${model}" failed after 2 retries: ${lastError}`);
       this.client = undefined;
       this.sessionId = undefined;
       emit({ type: 'session_state' });
       const next = chain[index + 1];
-      const notice = `Voltix: model "${model}" failed (${lastError}). Switching automatically to "${next}".`;
+      const notice = `Switched to fallback model ${next}, no click needed`;
       getLogger().appendLine(notice);
-      void vscode.window.showWarningMessage(notice);
-      emit({ type: 'text_delta', content: `⚠ ${notice}\n\n` });
+      emit({ type: 'text_delta', content: `${notice}\n` });
     }
   }
 
@@ -126,6 +135,21 @@ export class AgentMode {
 
   async cancel() {
     this.cancelled = true;
+    this.cancelRetry?.();
     if (this.client && this.sessionId) await this.client.sessions.cancel(this.sessionId, {});
+  }
+
+  private waitForRetry(delay: number): Promise<boolean> {
+    return new Promise(resolve => {
+      const timer = setTimeout(() => {
+        this.cancelRetry = undefined;
+        resolve(!this.cancelled);
+      }, delay);
+      this.cancelRetry = () => {
+        clearTimeout(timer);
+        this.cancelRetry = undefined;
+        resolve(false);
+      };
+    });
   }
 }
