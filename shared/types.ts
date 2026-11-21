@@ -165,6 +165,11 @@ export type PanelOutboundMessage =
   | { type: 'regret'; futureId: FutureId; gain: string[]; giveUp: string[]; regretIf: string[]; source: 'model' | 'evidence' }
   | { type: 'futures_chosen'; futureId: FutureId; otherId: FutureId }
   | { type: 'futures_cleared' }
+  | { type: 'run_started'; mode: 'agent' | 'futures' }
+  | { type: 'change_decision'; change: PendingChange }
+  | { type: 'review_reset' }
+  | { type: 'history_state'; canUndo: boolean; files: string[] }
+  | { type: 'focus_section'; section: 'futures' }
   | {
       type: 'apply_result';
       success: boolean;
@@ -189,7 +194,11 @@ export type PanelInboundMessage =
   | { type: 'panel_ready' }
   | { type: 'explore_futures'; text: string; probeCommand?: string }
   | { type: 'choose_future'; futureId: FutureId }
-  | { type: 'discard_futures' };
+  | { type: 'discard_futures' }
+  | { type: 'open_diff'; changeId: string; futureId?: FutureId }
+  | { type: 'open_in_editor' }
+  | { type: 'open_compare' }
+  | { type: 'undo_last' };
 
 export interface WorkspaceFile { path: string; absPath: string; sizeBytes: number; language: string }
 export interface SearchResult { path: string; absPath: string; line: number; column: number; lineContent: string }

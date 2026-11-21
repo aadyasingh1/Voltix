@@ -1,12 +1,16 @@
+import * as path from 'node:path';
 import * as vscode from 'vscode';
+import type { FutureId, PanelInboundMessage } from '../../shared/types';
 import { getLogger } from './utils/logger';
 import { AgentPanel } from './ui/agentPanel';
+import { AgentViewProvider } from './ui/agentViewProvider';
+import { SurfaceHub, type AgentSurface } from './ui/surfaceHub';
 import { AgentMode } from './commands/agentMode';
 import { runInlineEdit } from './commands/inlineEdit';
 import { VoltixDiffProvider } from './review/diffProvider';
 import { PendingChanges } from './review/pendingChanges';
 import { getActiveStore, getToolPolicy } from './review/activeStore';
-import { applyAndRecord, undoLastApply, canUndo } from './review/undoStack';
+import { applyAndRecord, undoLastApply, canUndo, lastAppliedFiles } from './review/undoStack';
 import { captureOriginalFile } from './review/conflictDetector';
 import { startMcpServer } from './tools/mcpServer';
 import { guardWorkspacePath } from './tools/pathGuard';
@@ -25,90 +29,150 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.workspace.registerTextDocumentContentProvider('voltix', diffProvider)
   );
 
-  let panel: AgentPanel | undefined;
-  let agentMode: AgentMode | undefined;
+  const hub = new SurfaceHub();
+  const agentMode = new AgentMode(hub);
+  let editorPanel: AgentPanel | undefined;
+  let focusFuturesWhenReady = false;
   let agentRunning = false;
   let inlineRunning = false;
   const futures = new FuturesEngine(
-    message => panel?.post(message),
-    passport => { if (agentMode) agentMode.lastPassport = passport; }
+    message => hub.post(message),
+    passport => { agentMode.lastPassport = passport; }
   );
-  const openPanel = () => {
-    if (!panel) {
-      const newPanel = new AgentPanel(context.extensionUri);
-      panel = newPanel;
-      if (agentMode) agentMode.setPanel(newPanel);
-      else agentMode = new AgentMode(newPanel);
-      newPanel.setInboundHandler(async message => {
-        if (message.type === 'submit') {
-          if (futures.busy || inlineRunning) {
-            newPanel.post({ type: 'error', message: 'Wait for the current Voltix run to finish, or cancel it.', recoverable: true });
-            return;
-          }
-          agentRunning = true;
-          try { await agentMode?.submit(message.text); } catch (error) {
-            newPanel.post({ type: 'error', message: error instanceof Error ? error.message : 'Request failed', recoverable: true });
-          } finally {
-            agentRunning = false;
-          }
-        } else if (message.type === 'cancel') {
-          try {
-            if (futures.busy) await futures.cancel();
-            else await agentMode?.cancel();
-          } catch (error) {
-            newPanel.post({ type: 'error', message: error instanceof Error ? error.message : 'Cancellation failed', recoverable: true });
-          }
-        } else if (message.type === 'panel_ready') {
-          newPanel.post({ type: 'futures_config', probeCommand: getSettings().futuresProbeCommand });
-          futures.replay();
-        } else if (message.type === 'explore_futures') {
-          if (agentRunning || inlineRunning) {
-            newPanel.post({ type: 'error', message: 'Wait for the current Voltix run to finish before exploring futures.', recoverable: true });
-            return;
-          }
-          try { await futures.explore(message.text, message.probeCommand); } catch (error) {
-            newPanel.post({ type: 'error', message: error instanceof Error ? error.message : 'Exploring futures failed', recoverable: true });
-          }
-        } else if (message.type === 'choose_future') {
-          try { await futures.choose(message.futureId); } catch (error) {
-            newPanel.post({ type: 'error', message: error instanceof Error ? error.message : 'Choosing the future failed', recoverable: true });
-          }
-        } else if (message.type === 'discard_futures') {
-          await futures.discard();
-        } else if (message.type === 'accept_hunk') {
-          PendingChanges.acceptHunk(message.changeId, message.hunkId);
-        } else if (message.type === 'reject_hunk') {
-          PendingChanges.rejectHunk(message.changeId, message.hunkId);
-        } else if (message.type === 'accept_file') {
-          PendingChanges.acceptFile(message.changeId);
-        } else if (message.type === 'reject_file') {
-          PendingChanges.rejectFile(message.changeId);
-        } else if (message.type === 'apply_accepted') {
-          applyWithUndo();
-        } else if (message.type === 'discard_all') {
-          await futures.discard();
-          for (const change of PendingChanges.getAll()) newPanel.post({ type: 'change_removed', changeId: change.id });
-          PendingChanges.clear();
-          resetVerification();
-          if (agentMode) agentMode.lastPassport = null;
-          newPanel.post({ type: 'passport', passport: null });
-        } else if (message.type === 'copy_passport') {
-          const passport = agentMode?.lastPassport;
-          if (passport) {
-            await vscode.env.clipboard.writeText(passportToMarkdown(passport));
-            void vscode.window.showInformationMessage('Voltix: Change Passport copied as Markdown (paste it into your PR or commit message).');
-          }
-        }
-      });
-      newPanel.onDidDispose(() => {
-        if (panel === newPanel) panel = undefined;
-      });
-      for (const change of PendingChanges.getAll()) {
-        newPanel.post({ type: 'pending_change', change });
-      }
-    }
-    panel.reveal();
+  const errorText = (error: unknown, fallback: string) => error instanceof Error ? error.message : fallback;
+  const postHistory = (target: AgentSurface = hub) =>
+    target.post({ type: 'history_state', canUndo: canUndo(), files: lastAppliedFiles() });
+
+  const discardReview = async () => {
+    await futures.discard();
+    PendingChanges.clear();
+    resetVerification();
+    agentMode.lastPassport = null;
+    hub.beginRun();
+    hub.post({ type: 'review_reset' });
   };
+
+  const openDiff = async (changeId: string, futureId?: FutureId) => {
+    const change = (futureId ? futures.findChange(futureId, changeId) : undefined) ?? PendingChanges.get(changeId);
+    if (!change) {
+      void vscode.window.showWarningMessage('Voltix: that change is no longer available.');
+      return;
+    }
+    const extension = path.extname(change.path) || '.txt';
+    const left = diffProvider.set(`${change.id}-original`, change.originalContent, extension);
+    const right = diffProvider.set(change.id, change.proposedContent, extension);
+    const label = futureId ? `Future ${futureId}: ` : 'Voltix: ';
+    await vscode.commands.executeCommand('vscode.diff', left, right, `${label}${change.path} (original ↔ proposed)`, { preview: true });
+  };
+
+  const openInEditor = (focusFutures = false) => {
+    if (editorPanel) {
+      editorPanel.reveal();
+      if (focusFutures) editorPanel.post({ type: 'focus_section', section: 'futures' });
+      return;
+    }
+    focusFuturesWhenReady = focusFutures;
+    const created = new AgentPanel(handleInbound);
+    editorPanel = created;
+    const detach = hub.attach(created);
+    created.onDidDispose(() => {
+      detach();
+      if (editorPanel === created) editorPanel = undefined;
+    });
+  };
+
+  const syncDecision = (changeId: string) => {
+    const change = PendingChanges.get(changeId);
+    if (change) hub.post({ type: 'change_decision', change });
+  };
+
+  const handleInbound = async (message: PanelInboundMessage, surface: AgentSurface) => {
+    if (message.type === 'submit') {
+      if (futures.busy || inlineRunning || agentRunning) {
+        surface.post({ type: 'error', message: 'Wait for the current Voltix run to finish, or cancel it.', recoverable: true });
+        return;
+      }
+      agentRunning = true;
+      hub.beginRun();
+      hub.post({ type: 'run_started', mode: 'agent' });
+      try { await agentMode.submit(message.text); } catch (error) {
+        hub.post({ type: 'error', message: errorText(error, 'Request failed'), recoverable: true });
+      } finally {
+        agentRunning = false;
+      }
+    } else if (message.type === 'cancel') {
+      try {
+        if (futures.busy) await futures.cancel();
+        else await agentMode.cancel();
+      } catch (error) {
+        hub.post({ type: 'error', message: errorText(error, 'Cancellation failed'), recoverable: true });
+      }
+    } else if (message.type === 'panel_ready') {
+      surface.post({ type: 'futures_config', probeCommand: getSettings().futuresProbeCommand });
+      hub.replayTo(surface, PendingChanges.getAll());
+      postHistory(surface);
+      if (surface === editorPanel && focusFuturesWhenReady) {
+        focusFuturesWhenReady = false;
+        surface.post({ type: 'focus_section', section: 'futures' });
+      }
+    } else if (message.type === 'explore_futures') {
+      if (agentRunning || inlineRunning) {
+        surface.post({ type: 'error', message: 'Wait for the current Voltix run to finish before exploring futures.', recoverable: true });
+        return;
+      }
+      try {
+        await futures.explore(message.text, message.probeCommand, () => {
+          hub.beginRun();
+          hub.post({ type: 'run_started', mode: 'futures' });
+        });
+      } catch (error) {
+        hub.post({ type: 'error', message: errorText(error, 'Exploring futures failed'), recoverable: true });
+      }
+    } else if (message.type === 'choose_future') {
+      try { await futures.choose(message.futureId); } catch (error) {
+        hub.post({ type: 'error', message: errorText(error, 'Choosing the future failed'), recoverable: true });
+      }
+    } else if (message.type === 'discard_futures') {
+      await futures.discard();
+    } else if (message.type === 'accept_hunk') {
+      PendingChanges.acceptHunk(message.changeId, message.hunkId);
+      syncDecision(message.changeId);
+    } else if (message.type === 'reject_hunk') {
+      PendingChanges.rejectHunk(message.changeId, message.hunkId);
+      syncDecision(message.changeId);
+    } else if (message.type === 'accept_file') {
+      PendingChanges.acceptFile(message.changeId);
+      syncDecision(message.changeId);
+    } else if (message.type === 'reject_file') {
+      PendingChanges.rejectFile(message.changeId);
+      syncDecision(message.changeId);
+    } else if (message.type === 'apply_accepted') {
+      applyWithUndo();
+    } else if (message.type === 'discard_all') {
+      await discardReview();
+    } else if (message.type === 'copy_passport') {
+      const passport = agentMode.lastPassport;
+      if (passport) {
+        await vscode.env.clipboard.writeText(passportToMarkdown(passport));
+        void vscode.window.showInformationMessage('Voltix: Change Passport copied as Markdown (paste it into your PR or commit message).');
+      }
+    } else if (message.type === 'open_diff') {
+      await openDiff(message.changeId, message.futureId);
+    } else if (message.type === 'open_in_editor') {
+      openInEditor();
+    } else if (message.type === 'open_compare') {
+      openInEditor(true);
+    } else if (message.type === 'undo_last') {
+      undo();
+    }
+  };
+
+  const viewProvider = new AgentViewProvider(hub, handleInbound);
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(AgentViewProvider.viewType, viewProvider, {
+      webviewOptions: { retainContextWhenHidden: true },
+    })
+  );
 
   const undo = () => {
     if (!canUndo()) {
@@ -120,11 +184,13 @@ export async function activate(context: vscode.ExtensionContext) {
     if (restored.length) parts.push(`restored ${restored.join(', ')}`);
     if (skipped.length) parts.push(`left ${skipped.join(', ')} alone because it was edited after the apply`);
     void vscode.window.showInformationMessage(`Voltix undo: ${parts.join('; ') || 'no files changed'}.`);
+    postHistory();
   };
 
   const applyWithUndo = () => {
     const result = applyAndRecord(PendingChanges.getAll());
-    panel?.post({ type: 'apply_result', ...result });
+    hub.post({ type: 'apply_result', ...result });
+    postHistory();
     if (result.applied.length) {
       void vscode.window.showInformationMessage(
         `Voltix applied ${result.applied.length} file(s): ${result.applied.join(', ')}`,
@@ -134,7 +200,8 @@ export async function activate(context: vscode.ExtensionContext) {
   };
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('voltix.openPanel', openPanel),
+    vscode.commands.registerCommand('voltix.openPanel', () => vscode.commands.executeCommand(`${AgentViewProvider.viewType}.focus`)),
+    vscode.commands.registerCommand('voltix.openInEditor', () => openInEditor()),
     vscode.commands.registerCommand('voltix.undoLastApply', undo),
     vscode.commands.registerCommand('voltix.inlineEdit', async () => {
       // Inline edit reads the default store, so it must not share the MCP tools with a running future.
@@ -144,7 +211,7 @@ export async function activate(context: vscode.ExtensionContext) {
       }
       inlineRunning = true;
       try {
-        await runInlineEdit(diffProvider);
+        await runInlineEdit(diffProvider, changeId => hub.post({ type: 'change_removed', changeId }));
       } finally {
         inlineRunning = false;
       }
@@ -152,16 +219,19 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('voltix.applyAccepted', applyWithUndo),
     vscode.commands.registerCommand('voltix.acceptInlineEdit', () => {
       const active = PendingChanges.getAll().at(-1);
-      if (active) PendingChanges.acceptFile(active.id);
+      if (active) {
+        PendingChanges.acceptFile(active.id);
+        syncDecision(active.id);
+      }
     }),
     vscode.commands.registerCommand('voltix.rejectInlineEdit', () => {
       const active = PendingChanges.getAll().at(-1);
-      if (active) PendingChanges.rejectFile(active.id);
+      if (active) {
+        PendingChanges.rejectFile(active.id);
+        syncDecision(active.id);
+      }
     }),
-    vscode.commands.registerCommand('voltix.discardAll', async () => {
-      await futures.discard();
-      PendingChanges.clear();
-    })
+    vscode.commands.registerCommand('voltix.discardAll', discardReview)
   );
 
   try {
@@ -175,10 +245,10 @@ export async function activate(context: vscode.ExtensionContext) {
         if (!getToolPolicy().allowVerify) throw new Error('This step is read-only. Do not run tests; reply with the requested JSON.');
         const store = getActiveStore();
         const isDefault = store === PendingChanges;
-        if (isDefault) panel?.post({ type: 'verification', phase: 'running', command, summary: 'Agent is running the tests against its pending changes in a sandbox…', round: 0, maxRounds: 0, source: 'agent' });
+        if (isDefault) hub.post({ type: 'verification', phase: 'running', command, summary: 'Agent is running the tests against its pending changes in a sandbox…', round: 0, maxRounds: 0, source: 'agent' });
         const record = await verifyPending(command, 'agent', store);
         if (isDefault) {
-          panel?.post({
+          hub.post({
             type: 'verification', phase: record.passed ? 'passed' : 'failed', command: record.command, summary: record.summary,
             round: 0, maxRounds: 0, source: 'agent', output: record.output.slice(-4000), durationMs: record.durationMs,
           });
@@ -199,7 +269,7 @@ export async function activate(context: vscode.ExtensionContext) {
           : captureOriginalFile(guarded.absPath);
         if (existing) {
           store.remove(existing.id);
-          if (isDefault) panel?.post({ type: 'change_removed', changeId: existing.id });
+          if (isDefault) hub.post({ type: 'change_removed', changeId: existing.id });
         }
         const reason = existing && existing.reason !== input.reason ? `${existing.reason}\n${input.reason}` : input.reason;
         const change = store.add({
@@ -209,7 +279,7 @@ export async function activate(context: vscode.ExtensionContext) {
           proposedContent: input.proposedContent,
           reason,
         });
-        if (isDefault) panel?.post({ type: 'pending_change', change });
+        if (isDefault) hub.post({ type: 'pending_change', change });
       },
     });
     logger.appendLine('MCP server listening on http://127.0.0.1:7891/mcp');

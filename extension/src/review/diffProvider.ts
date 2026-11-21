@@ -5,8 +5,9 @@ export class VoltixDiffProvider implements vscode.TextDocumentContentProvider {
   provideTextDocumentContent(uri: vscode.Uri): string {
     return this.documents.get(uri.toString()) ?? '';
   }
-  set(id: string, content: string): vscode.Uri {
-    const uri = vscode.Uri.parse(`voltix:${encodeURIComponent(id)}.txt`);
+  /** `extension` (for example ".py") gives the diff view the right syntax highlighting. */
+  set(id: string, content: string, extension = '.txt'): vscode.Uri {
+    const uri = vscode.Uri.parse(`voltix:${encodeURIComponent(id)}${extension}`);
     this.documents.set(uri.toString(), content);
     return uri;
   }

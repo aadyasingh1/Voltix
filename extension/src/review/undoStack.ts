@@ -39,6 +39,11 @@ export function canUndo(): boolean {
   return history.length > 0;
 }
 
+/** Files the next undo would restore. */
+export function lastAppliedFiles(): string[] {
+  return history[history.length - 1]?.map(file => file.path) ?? [];
+}
+
 /**
  * Restores the files written by the most recent apply. A file that was edited after the
  * apply is left alone (and reported), so undo never overwrites the user's own work.

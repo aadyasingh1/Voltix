@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { AgentPanel } from '../ui/agentPanel';
+import type { AgentSurface } from '../ui/surfaceHub';
 import { createSession } from '../agent/session';
 import { processTurn } from '../agent/streamProcessor';
 import { assembleContext } from '../context/retriever';
@@ -22,14 +22,10 @@ export class AgentMode {
   private cancelled = false;
   lastPassport: ChangePassport | null = null;
 
-  constructor(private panel: AgentPanel) {}
-
-  setPanel(panel: AgentPanel) {
-    this.panel = panel;
-  }
+  constructor(private readonly surface: AgentSurface) {}
 
   async submit(text: string) {
-    const emit: Emit = message => this.panel.post(message);
+    const emit: Emit = message => this.surface.post(message);
     const root = getWorkspaceRoot();
     const context = await assembleContext(text, root, getSettings().contextTokenBudget);
     const enriched = `${text}\n\nSelected workspace context:\n${context.items.map(item => `${item.path}\n${item.content}`).join('\n\n')}`;

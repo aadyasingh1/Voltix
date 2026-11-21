@@ -9,8 +9,19 @@
   "activationEvents": ["onStartupFinished", "onCommand:voltix.openPanel", "onCommand:voltix.inlineEdit"],
   "main": "./dist/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        { "id": "voltix", "title": "Voltix", "icon": "media/voltix.svg" }
+      ]
+    },
+    "views": {
+      "voltix": [
+        { "type": "webview", "id": "voltix.agentView", "name": "Agent" }
+      ]
+    },
     "commands": [
       { "command": "voltix.openPanel", "title": "Voltix: Open Agent Panel" },
+      { "command": "voltix.openInEditor", "title": "Voltix: Open in Editor" },
       { "command": "voltix.inlineEdit", "title": "Voltix: Inline Edit" },
       { "command": "voltix.applyAccepted", "title": "Voltix: Apply Accepted Changes" },
       { "command": "voltix.rejectInlineEdit", "title": "Voltix: Reject Inline Edit" },

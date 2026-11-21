@@ -13,7 +13,11 @@ import { getLogger } from '../utils/logger';
  * (edit_file / propose_file_change), so nothing is written to disk until the user accepts.
  * If the configured model fails, the next model in voltix.fallbackModels is used automatically.
  */
-export async function runInlineEdit(provider: VoltixDiffProvider) {
+export async function runInlineEdit(provider: VoltixDiffProvider, onRemoved?: (changeId: string) => void) {
+  const drop = (changeId: string) => {
+    PendingChanges.remove(changeId);
+    onRemoved?.(changeId);
+  };
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
     vscode.window.showWarningMessage('Voltix: open a file and select some code first.');
@@ -103,7 +107,7 @@ export async function runInlineEdit(provider: VoltixDiffProvider) {
   );
 
   if (cancelled) {
-    if (change) PendingChanges.remove(change.id);
+    if (change) drop(change.id);
     vscode.window.showInformationMessage('Voltix: inline edit cancelled. No files were changed.');
     return;
   }
@@ -114,7 +118,7 @@ export async function runInlineEdit(provider: VoltixDiffProvider) {
     return;
   }
   if (change.hunks.length === 0) {
-    PendingChanges.remove(change.id);
+    drop(change.id);
     vscode.window.showInformationMessage('Voltix: the agent proposed no actual changes.');
     return;
   }
@@ -134,6 +138,7 @@ export async function runInlineEdit(provider: VoltixDiffProvider) {
     PendingChanges.acceptFile(change.id);
     const result = applyAndRecord([change]);
     if (result.applied.length) {
+      onRemoved?.(change.id);
       const undo = await vscode.window.showInformationMessage(`Voltix: applied inline edit to ${rel}.`, 'Undo');
       if (undo === 'Undo') await vscode.commands.executeCommand('voltix.undoLastApply');
     } else if (result.conflicts.length) {
@@ -142,10 +147,10 @@ export async function runInlineEdit(provider: VoltixDiffProvider) {
       vscode.window.showErrorMessage(`Voltix: could not apply the edit to ${rel}. Nothing was written.`);
     }
   } else if (choice === 'Review Hunks') {
-    // Per-hunk accept/reject happens in the Voltix panel, then Apply Accepted.
-    await vscode.commands.executeCommand('voltix.openPanel');
+    // Per-hunk accept/reject needs the wide view, then Apply Accepted.
+    await vscode.commands.executeCommand('voltix.openInEditor');
   } else {
-    PendingChanges.remove(change.id);
+    drop(change.id);
     vscode.window.showInformationMessage('Voltix: inline edit rejected. No files were modified.');
   }
 }

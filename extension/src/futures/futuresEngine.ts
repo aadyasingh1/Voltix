@@ -10,7 +10,7 @@ import { runProbeInSandbox, validateProbeCommand } from '../verify/sandbox';
 import { copyVerification, currentRecord, pendingFiles, resetVerification } from '../verify/verifier';
 import { runVerifyLoop } from '../verify/verifyLoop';
 import type {
-  ChangePassport, ComparisonRow, FutureEvidence, FutureId, FuturePhase, FutureProbeResult, FutureStrategy, PanelOutboundMessage,
+  ChangePassport, ComparisonRow, FutureEvidence, FutureId, FuturePhase, FutureProbeResult, FutureStrategy, PanelOutboundMessage, PendingChange,
 } from '../../../shared/types';
 import { buildComparison, buildEvidence } from './evidence';
 import { runOnModelChain, type Session } from './modelRunner';
@@ -61,22 +61,12 @@ export class FuturesEngine {
     return this.exploring || this.choosing;
   }
 
-  /** Re-sends the current run to a newly opened panel. */
-  replay(): void {
-    if (this.busy) this.post({ type: 'busy', busy: true, label: 'Futures are still running…' });
-    const run = this.run;
-    if (!run) return;
-    this.post({ type: 'futures_plan', strategies: run.strategies, usedFallback: run.usedFallback });
-    for (const [futureId, entry] of run.entries) {
-      this.post({ type: 'future_progress', futureId, phase: entry.phase, label: entry.label });
-      if (entry.evidence) {
-        this.post({ type: 'future_result', futureId, evidence: entry.evidence, passport: entry.passport, changes: entry.store.getAll() });
-      }
-    }
-    if (run.rows) this.post({ type: 'futures_compare', rows: run.rows });
+  /** A change from a live future, for the read-only diff view. */
+  findChange(futureId: FutureId, changeId: string): PendingChange | undefined {
+    return this.run?.entries.get(futureId)?.store.get(changeId);
   }
 
-  async explore(task: string, probeInput?: string): Promise<void> {
+  async explore(task: string, probeInput?: string, onStart?: () => void): Promise<void> {
     if (this.busy) throw new Error('Futures are already running.');
     if (!task.trim()) throw new Error('Describe a task before exploring futures.');
     if (PendingChanges.getAll().length) {
@@ -93,6 +83,7 @@ export class FuturesEngine {
     this.cancelled = false;
     this.run = null;
     try {
+      onStart?.();
       const root = getWorkspaceRoot();
       this.post({ type: 'busy', busy: true, label: 'Planning two different strategies…' });
       const assembled = await assembleContext(task, root, settings.contextTokenBudget);
