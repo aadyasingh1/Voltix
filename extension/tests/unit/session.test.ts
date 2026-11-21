@@ -31,7 +31,7 @@ beforeEach(() => {
   mockCreate.mockResolvedValue({ data: { id: 'session-1' } });
 });
 
-test('uses MCP file proposals without TrueForge approval gates (the panel review is the gate)', async () => {
+test('uses submit_changes approval with deferred read tools and preloaded write tools', async () => {
   await createSession();
 
   const request = mockCreate.mock.calls[0][0] as {
@@ -42,6 +42,7 @@ test('uses MCP file proposals without TrueForge approval gates (the panel review
           name: string;
           enableTools: string[];
           preload: boolean;
+          preloadTools: string[];
           requireApprovalForTools: string[];
         }>;
         requireApprovalForTools?: string[];
@@ -53,12 +54,14 @@ test('uses MCP file proposals without TrueForge approval gates (the panel review
   expect(spec.instructions).toContain('propose_file_change');
   expect(spec.instructions).toContain('edit_file');
   expect(spec.instructions).toContain('COMPLETE new file content');
+  expect(spec.instructions).toContain('submit_changes');
   expect(spec.mcpServers).toEqual([
     expect.objectContaining({
       name: 'vscode-workspace',
       enableTools: ['@all'],
-      preload: true,
-      requireApprovalForTools: [],
+      preload: false,
+      preloadTools: ['edit_file', 'propose_file_change', 'verify_changes', 'run_command', 'submit_changes'],
+      requireApprovalForTools: ['submit_changes'],
     }),
   ]);
   expect(Object.prototype.hasOwnProperty.call(spec, 'requireApprovalForTools')).toBe(false);

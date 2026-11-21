@@ -23,6 +23,8 @@ export interface McpHooks {
   editBlockedReason?: () => string | undefined;
   /** Why run_command is refused for the current run (futures may only test in the sandbox). */
   commandBlockedReason?: () => string | undefined;
+  /** Called after verify_changes passes when the agent submits changes for human approval. */
+  onSubmitChanges?: (summary: string) => void;
 }
 
 type ProposedChangeHandler = McpHooks['onProposedChange'];
@@ -117,6 +119,13 @@ function buildServer(hooks: McpHooks): McpServer {
     } catch (error) {
       return { isError: true, content: [{ type: 'text', text: error instanceof Error ? error.message : String(error) }] };
     }
+  });
+
+  (server as any).tool('submit_changes', {
+    summary: z.string(),
+  }, async ({ summary }: { summary: string }) => {
+    hooks.onSubmitChanges?.(summary);
+    return { content: [{ type: 'text', text: 'Changes submitted for Voltix human review.' }] };
   });
 
   (server as any).tool('run_command', { command: z.string(), cwd: z.string().optional() }, async ({ command, cwd }: { command: string; cwd?: string }) => {

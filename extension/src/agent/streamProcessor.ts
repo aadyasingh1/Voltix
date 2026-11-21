@@ -59,6 +59,9 @@ export function formatToolSummary(name: string, argumentsText: string, result: s
     const firstLine = result.split(/\r?\n/, 1)[0].replace(/^(PASSED|FAILED):\s*/, '');
     return `verify_changes → ${safeSummaryValue(firstLine)}`;
   }
+  if (name === 'submit_changes') {
+    return `submit_changes → ${safeSummaryValue(args.summary)} (waiting for review)`;
+  }
   const detail = args.path ?? args.query ?? args.command;
   return `${name}${detail === undefined ? '' : ` ${safeSummaryValue(detail)}`} → completed`;
 }
@@ -69,7 +72,7 @@ export async function processTurn(
   input: string,
   emit: (message: PanelOutboundMessage) => void,
   onStreamStarted?: () => void,
-  options: { deferErrors?: boolean } = {}
+  options: { deferErrors?: boolean; onApprovalRequired?: (input: { toolCallId: string; threadId: string; turnId: string; summary: string }) => void } = {}
 ): Promise<TurnResult> {
   const stream = await client.sessions.createTurnStream(sessionId, {
     input: [{ type: 'user.message', content: input }],
@@ -77,6 +80,7 @@ export async function processTurn(
   onStreamStarted?.();
 
   let full = '';
+  let turnId = '';
   let sawTerminalEvent = false;
   const callsByIndex = new Map<number, ToolCallState>();
   const callsById = new Map<string, ToolCallState>();
@@ -100,7 +104,9 @@ export async function processTurn(
   };
 
   for await (const event of stream) {
-    if (event.type === 'model.message.delta') {
+    if (event.type === 'turn.created') {
+      turnId = event.turnId;
+    } else if (event.type === 'model.message.delta') {
       const content = event.content ?? '';
       full += content;
       emit({ type: 'text_delta', content });
@@ -126,6 +132,18 @@ export async function processTurn(
     } else if (event.type === 'tool.approval_required') {
       for (const toolCall of event.toolCalls) {
         if (!startedCalls.has(toolCall.id)) emitToolRequest(toolCall.id, 'approval_required');
+        const call = callsById.get(toolCall.id);
+        let summary = 'Submit changes for human review';
+        if (call?.arguments) {
+          try {
+            const parsed = JSON.parse(call.arguments) as { summary?: string };
+            if (parsed.summary) summary = parsed.summary;
+          } catch (_) {}
+        }
+        if (call?.name === 'submit_changes') {
+          options.onApprovalRequired?.({ toolCallId: toolCall.id, threadId: event.threadId, turnId, summary });
+          emit({ type: 'approval_required', toolCallId: toolCall.id, threadId: event.threadId, turnId, summary });
+        }
       }
     } else if (event.type === 'tool.response_required') {
       for (const toolCall of event.toolCalls) {

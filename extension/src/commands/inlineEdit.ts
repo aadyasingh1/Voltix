@@ -4,7 +4,6 @@ import { createSession } from '../agent/session';
 import { getModelChain } from '../config/settings';
 import { guardWorkspacePath } from '../tools/pathGuard';
 import { PendingChanges } from '../review/pendingChanges';
-import { applyAndRecord } from '../review/undoStack';
 import { VoltixDiffProvider } from '../review/diffProvider';
 import { getLogger } from '../utils/logger';
 
@@ -97,6 +96,9 @@ export async function runInlineEdit(provider: VoltixDiffProvider, onRemoved?: (c
           const message = error instanceof Error ? error.message : String(error);
           errors.push(`${model}: ${message}`);
           getLogger().appendLine(`Inline edit with ${model} failed: ${message}`);
+          PendingChanges.getAll()
+            .filter(item => item.path === rel || item.absPath === guarded.absPath)
+            .forEach(item => PendingChanges.remove(item.id));
           if (index < models.length - 1 && !cancelled) {
             void vscode.window.showWarningMessage(
               `Voltix: model "${model}" failed (${message}). Switching automatically to "${models[index + 1]}".`
@@ -124,34 +126,11 @@ export async function runInlineEdit(provider: VoltixDiffProvider, onRemoved?: (c
     return;
   }
 
-  // Original (left) vs proposed (right). The real file is untouched until the user accepts.
+  // Original (left) vs proposed (right). The real file stays untouched until hunk/file review is complete.
   const right = provider.set(change.id, change.proposedContent, path.extname(change.path) || '.txt', change.id);
   await vscode.commands.executeCommand('vscode.diff', editor.document.uri, right, `Voltix Inline Edit: ${rel} (${change.hunks.length} hunk${change.hunks.length === 1 ? '' : 's'})`);
-
-  const choice = await vscode.window.showInformationMessage(
-    `Voltix: ${change.reason || instruction}`,
-    'Accept & Apply',
-    'Review Hunks',
-    'Reject'
+  await vscode.commands.executeCommand('voltix.openInEditor');
+  void vscode.window.showInformationMessage(
+    `Voltix: inline edit proposal ready for hunk review in ${rel}. No files were modified.`
   );
-
-  if (choice === 'Accept & Apply') {
-    PendingChanges.acceptFile(change.id);
-    const result = applyAndRecord([change]);
-    if (result.applied.length) {
-      onRemoved?.(change.id);
-      const undo = await vscode.window.showInformationMessage(`Voltix: applied inline edit to ${rel}.`, 'Undo');
-      if (undo === 'Undo') await vscode.commands.executeCommand('voltix.undoLastApply');
-    } else if (result.conflicts.length) {
-      vscode.window.showErrorMessage(`Voltix: ${rel} changed since the edit was proposed. Nothing was written.`);
-    } else {
-      vscode.window.showErrorMessage(`Voltix: could not apply the edit to ${rel}. Nothing was written.`);
-    }
-  } else if (choice === 'Review Hunks') {
-    // Per-hunk accept/reject needs the wide view, then Apply Accepted.
-    await vscode.commands.executeCommand('voltix.openInEditor');
-  } else {
-    drop(change.id);
-    vscode.window.showInformationMessage('Voltix: inline edit rejected. No files were modified.');
-  }
 }

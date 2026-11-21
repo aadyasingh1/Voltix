@@ -5,6 +5,8 @@
 
 **A transparent, surgical AI coding agent for VS Code — it proposes, you approve.**
 
+Voltix defers read-tool schemas (file listing, search, and reading) in TrueForge context so the initial agent prompt stays smaller; edit, verify, run, and submit tools remain preloaded so writes and review never stall.
+
 [![VS Code extension](https://img.shields.io/badge/VS_Code-extension-007ACC?logo=visualstudiocode&logoColor=white)](https://code.visualstudio.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![MCP](https://img.shields.io/badge/MCP-workspace_tools-5B5FC7)](https://modelcontextprotocol.io/)

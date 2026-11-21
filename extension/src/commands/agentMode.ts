@@ -21,6 +21,7 @@ export class AgentMode {
   private sessionModel: string | undefined;
   private cancelled = false;
   private cancelRetry: (() => void) | undefined;
+  private pendingApproval: { toolCallId: string; threadId: string; turnId: string } | undefined;
   lastPassport: ChangePassport | null = null;
   lastStatus: 'done' | 'cancelled' | 'error' | undefined;
 
@@ -76,7 +77,12 @@ export class AgentMode {
           }
           const result = await processTurn(this.client, this.sessionId!, enriched, emit, () => {
             emit({ type: 'context_receipt', receipt: context.receipt });
-          }, { deferErrors: true });
+          }, {
+            deferErrors: true,
+            onApprovalRequired: approval => {
+              this.pendingApproval = approval;
+            },
+          });
           if (result.status === 'done') {
             await this.afterTurn(emit, model);
             this.lastStatus = this.cancelled ? 'cancelled' : 'done';
@@ -97,7 +103,7 @@ export class AgentMode {
         if (attempt < RETRY_DELAYS_MS.length) {
           const delay = RETRY_DELAYS_MS[attempt];
           const retryNumber = attempt + 1;
-          emit({ type: 'model_status', content: `Retry ${retryNumber} of 2 after ${delay / 1000}s` });
+          emit({ type: 'model_status', content: `Primary model failed (${lastError}). Retrying ${retryNumber}/2 after ${delay / 1000}s…` });
           if (!await this.waitForRetry(delay)) {
             this.lastStatus = 'cancelled';
             return;
@@ -115,6 +121,7 @@ export class AgentMode {
       }
       this.client = undefined;
       this.sessionId = undefined;
+      PendingChanges.clear();
       emit({ type: 'session_state' });
       const next = chain[index + 1];
       const notice = `Switched to fallback model ${next}, no click needed`;
@@ -167,6 +174,32 @@ export class AgentMode {
     this.cancelled = true;
     this.cancelRetry?.();
     if (this.client && this.sessionId) await this.client.sessions.cancel(this.sessionId, {});
+  }
+
+  async approveSubmittedChanges(): Promise<void> {
+    if (!this.client || !this.sessionId || !this.pendingApproval) return;
+    const approval = this.pendingApproval;
+    await this.client.sessions.createTurnEvents(this.sessionId, approval.turnId, {
+      events: [{
+        type: 'user.tool_approval',
+        threadId: approval.threadId,
+        toolCallId: approval.toolCallId,
+        approval: { status: 'allow' },
+      }],
+    });
+  }
+
+  async denySubmittedChanges(reason = 'User rejected changes'): Promise<void> {
+    if (!this.client || !this.sessionId || !this.pendingApproval) return;
+    const approval = this.pendingApproval;
+    await this.client.sessions.createTurnEvents(this.sessionId, approval.turnId, {
+      events: [{
+        type: 'user.tool_approval',
+        threadId: approval.threadId,
+        toolCallId: approval.toolCallId,
+        approval: { status: 'deny', reason },
+      }],
+    });
   }
 
   private waitForRetry(delay: number): Promise<boolean> {

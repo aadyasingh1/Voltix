@@ -34,6 +34,7 @@ export function buildAgentHtml(): string {
     .toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
     #status{min-height:20px;margin:8px 0;color:var(--tf-muted);font-size:12px}
     .error-banner,.result-banner{margin:10px 0;padding:10px 12px;border:1px solid var(--vx-line);border-radius:12px;background:var(--tf-card)}
+    .approval-banner{margin:10px 0;padding:10px 12px;border:1px solid var(--vx-violet);border-radius:12px;background:var(--tf-card);font-weight:600}
     .banner-heading{font-weight:600;margin-bottom:4px}
     .banner-list{margin:6px 0 0;padding-left:20px}
     #conversation{display:flex;flex-direction:column;gap:10px;margin:8px 0 16px;max-height:520px;overflow:auto}
@@ -375,6 +376,7 @@ export function buildAgentHtml(): string {
   </div>
   <section id="stepper" class="stepper" aria-label="Run progress" hidden></section>
   <div id="status" role="status" aria-live="polite"></div>
+  <div id="approval-banner" class="approval-banner" hidden>TrueForge is waiting for your review</div>
   <div id="error-area" aria-live="assertive"></div>
   <div id="result-area" aria-live="polite"></div>
   <div id="safety-proof-area" aria-live="polite"></div>
@@ -439,6 +441,7 @@ export function buildAgentHtml(): string {
       modelChain: [],
       activeModel: '',
       recentRuns: [],
+      pendingApproval: null,
       sessionId: '',
       safetyProofs: [],
       messages: [],
@@ -453,6 +456,7 @@ export function buildAgentHtml(): string {
     const errorArea = document.getElementById('error-area');
     const resultArea = document.getElementById('result-area');
     const safetyProofArea = document.getElementById('safety-proof-area');
+    const approvalBanner = document.getElementById('approval-banner');
     const receiptBody = document.getElementById('receipt-body');
     const receiptCount = document.getElementById('receipt-count');
     const activityList = document.getElementById('activity-list');
@@ -1843,7 +1847,16 @@ export function buildAgentHtml(): string {
         return;
       }
       trackRun(message);
-      if (message.type === 'chat_message') {
+      if (message.type === 'approval_required') {
+        state.pendingApproval = { toolCallId: message.toolCallId, summary: message.summary };
+        approvalBanner.hidden = false;
+        approvalBanner.textContent = 'TrueForge is waiting for your review';
+        updateActivity({ id: 'approval-' + message.toolCallId, name: 'submit_changes', summary: 'Approval required: ' + message.summary, status: 'Waiting for review' });
+      } else if (message.type === 'approval_decision') {
+        approvalBanner.hidden = true;
+        state.pendingApproval = null;
+        updateActivity({ id: 'approval-' + message.toolCallId, name: 'submit_changes', summary: message.decision === 'allow' ? 'Approved: changes applied' : 'Denied: ' + (message.reason || 'User rejected changes'), status: message.decision === 'allow' ? 'Approved' : 'Denied' });
+      } else if (message.type === 'chat_message') {
         appendConversationMessage(message.role, message.content || '');
       } else if (message.type === 'model_status') {
         appendConversationMessage('assistant', message.content || '');

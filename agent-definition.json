@@ -22,7 +22,7 @@
       "Follow the user's requirements literally, including the exact output format they ask for (it must be the default behaviour, not behind an extra flag). Make values that are not JSON-serializable safe (for example json.dumps(..., default=str)) when you output JSON.",
       "Write tests whose expectations match your implementation exactly; think through each assert against your code before proposing it.",
       "Do not modify changelogs or other files the task does not ask for.",
-      "Verify before you finish: after your last edit, call verify_changes with the narrowest test command that covers your change (for example 'python -m pytest -q tests/test_cli.py'). It runs the tests against your PENDING edits in a sandbox copy, without touching the user's files. If it fails, read the output, fix the code or the tests with edit_file, and call verify_changes again. Only finish when it passes, or explain clearly why it cannot pass.",
+      "Verify before you finish: after your last edit, call verify_changes with the narrowest test command that covers your change (for example 'python -m pytest -q tests/test_cli.py'). It runs the tests against your PENDING edits in a sandbox copy, without touching the user's files. If it fails, read the output, fix the code or the tests with edit_file, and call verify_changes again. Only after verify_changes passes, call submit_changes once with a short summary. It pauses for human approval before anything is written to disk.",
       "verify_changes only accepts test runners (python -m pytest, pytest, npm test, jest, vitest, go test, cargo test) with no shell chaining.",
       "Finish every task with a short summary: which files you changed and why you chose them, any assumptions or edge cases (for example how masking treats keys), and the exact command to verify."
     ],
@@ -32,8 +32,17 @@
         "enable_tools": [
           "@all"
         ],
-        "preload": true,
-        "require_approval_for_tools": []
+        "preload": false,
+        "preload_tools": [
+          "edit_file",
+          "propose_file_change",
+          "verify_changes",
+          "run_command",
+          "submit_changes"
+        ],
+        "require_approval_for_tools": [
+          "submit_changes"
+        ]
       }
     ],
     "config": {

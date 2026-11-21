@@ -269,8 +269,12 @@ export async function activate(context: vscode.ExtensionContext) {
       syncDecision(message.changeId);
     } else if (message.type === 'apply_accepted') {
       applyWithUndo();
+      await agentMode.approveSubmittedChanges();
+      hub.post({ type: 'approval_decision', toolCallId: 'submit_changes', decision: 'allow' });
     } else if (message.type === 'discard_all') {
       await discardReview();
+      await agentMode.denySubmittedChanges('User rejected changes');
+      hub.post({ type: 'approval_decision', toolCallId: 'submit_changes', decision: 'deny', reason: 'User rejected changes' });
     } else if (message.type === 'copy_passport') {
       const passport = agentMode.lastPassport;
       if (passport) {

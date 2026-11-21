@@ -6,6 +6,7 @@ interface DefinitionMcpServer {
   name: string;
   enable_tools?: string[];
   preload?: boolean;
+  preload_tools?: string[];
   require_approval_for_tools?: string[];
 }
 
@@ -24,6 +25,7 @@ export function buildAgentSpec(modelName: string) {
       name: server.name,
       enableTools: server.enable_tools ?? ['@all'],
       preload: server.preload ?? true,
+      preloadTools: server.preload_tools ?? [],
       requireApprovalForTools: server.require_approval_for_tools ?? [],
     })),
     config: { iterationLimit: spec.config.iteration_limit },
