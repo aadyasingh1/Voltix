@@ -31,6 +31,31 @@ export async function activate(context: vscode.ExtensionContext) {
 
   const hub = new SurfaceHub();
   const agentMode = new AgentMode(hub);
+  const checkConnection = async (target: AgentSurface = hub) => {
+    const baseUrl = getSettings().baseUrl.replace(/\/+$/, '');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    try {
+      const response = await fetch(baseUrl, { method: 'GET', signal: controller.signal });
+      target.post({
+        type: 'connection_status',
+        connected: response.ok,
+        baseUrl,
+        error: response.ok ? undefined : `HTTP ${response.status}`,
+      });
+    } catch (error) {
+      target.post({
+        type: 'connection_status',
+        connected: false,
+        baseUrl,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
+  const connectionTimer = setInterval(() => { void checkConnection(); }, 30_000);
+  context.subscriptions.push({ dispose: () => clearInterval(connectionTimer) });
   let editorPanel: AgentPanel | undefined;
   let focusFuturesWhenReady = false;
   let agentRunning = false;
@@ -110,6 +135,13 @@ export async function activate(context: vscode.ExtensionContext) {
     } else if (message.type === 'panel_ready') {
       surface.post({ type: 'futures_config', probeCommand: getSettings().futuresProbeCommand });
       surface.post({ type: 'model_info', model: getSettings().model });
+      surface.post({
+        type: 'model_chain',
+        models: [getSettings().model, ...getSettings().fallbackModels],
+        active: agentMode.currentModel ?? getSettings().model,
+      });
+      surface.post({ type: 'session_state', sessionId: agentMode.currentSessionId });
+      void checkConnection(surface);
       surface.post({ type: 'replay_boundary', phase: 'start' });
       hub.replayTo(surface, PendingChanges.getAll());
       surface.post({ type: 'replay_boundary', phase: 'end' });
@@ -167,6 +199,18 @@ export async function activate(context: vscode.ExtensionContext) {
       openInEditor(true);
     } else if (message.type === 'undo_last') {
       undo();
+    } else if (message.type === 'open_session') {
+      const sessionId = agentMode.currentSessionId;
+      if (!sessionId) return;
+      const settings = getSettings();
+      const url = settings.sessionUrlTemplate
+        .replace(/\{baseUrl\}/g, settings.baseUrl.replace(/\/+$/, ''))
+        .replace(/\{id\}/g, encodeURIComponent(sessionId));
+      try {
+        await vscode.env.openExternal(vscode.Uri.parse(url));
+      } catch (error) {
+        void vscode.window.showErrorMessage(`Voltix could not open the TrueForge session: ${errorText(error, 'Invalid session URL')}`);
+      }
     }
   };
 

@@ -38,6 +38,7 @@
       "title": "Voltix",
       "properties": {
         "voltix.baseUrl": { "type": "string", "default": "http://localhost:8790", "description": "TrueForge server URL" },
+        "voltix.sessionUrlTemplate": { "type": "string", "default": "{baseUrl}/sessions/{id}", "description": "Browser URL template for opening the current TrueForge session. Supports {baseUrl} and {id}." },
         "voltix.model": { "type": "string", "default": "openrouter/north-mini-code", "description": "Primary model, as named in TrueForge (provider/model)" },
         "voltix.fallbackModels": { "type": "array", "items": { "type": "string" }, "default": [], "description": "Models tried automatically, in order, if the primary model fails (provider/model as named in TrueForge)" },
         "voltix.contextTokenBudget": { "type": "number", "default": 8000, "minimum": 500 },

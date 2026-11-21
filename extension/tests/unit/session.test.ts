@@ -15,6 +15,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   jest.mocked(getSettings).mockReturnValue({
     baseUrl: 'http://localhost:8790',
+    sessionUrlTemplate: '{baseUrl}/sessions/{id}',
     model: 'test-model',
     fallbackModels: [],
     contextTokenBudget: 8000,

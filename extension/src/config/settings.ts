@@ -4,6 +4,7 @@ export function getSettings() {
   const config = vscode.workspace.getConfiguration('voltix');
   return {
     baseUrl: config.get<string>('baseUrl', 'http://localhost:8790'),
+    sessionUrlTemplate: config.get<string>('sessionUrlTemplate', '{baseUrl}/sessions/{id}'),
     model: config.get<string>('model', 'openrouter/north-mini-code'),
     fallbackModels: config.get<string[]>('fallbackModels', []),
     contextTokenBudget: config.get<number>('contextTokenBudget', 8000),

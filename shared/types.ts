@@ -145,6 +145,9 @@ export type PanelOutboundMessage =
   | { type: 'error'; message: string; recoverable: boolean }
   | { type: 'busy'; busy: boolean; label?: string }
   | { type: 'model_info'; model: string; fallbackFrom?: string }
+  | { type: 'model_chain'; models: string[]; active: string }
+  | { type: 'connection_status'; connected: boolean; baseUrl: string; error?: string }
+  | { type: 'session_state'; sessionId?: string }
   | {
       type: 'verification';
       phase: VerifyPhase;
@@ -199,7 +202,8 @@ export type PanelInboundMessage =
   | { type: 'open_diff'; changeId: string; futureId?: FutureId }
   | { type: 'open_in_editor' }
   | { type: 'open_compare' }
-  | { type: 'undo_last' };
+  | { type: 'undo_last' }
+  | { type: 'open_session' };
 
 export interface WorkspaceFile { path: string; absPath: string; sizeBytes: number; language: string }
 export interface SearchResult { path: string; absPath: string; line: number; column: number; lineContent: string }

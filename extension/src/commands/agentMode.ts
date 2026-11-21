@@ -24,6 +24,14 @@ export class AgentMode {
 
   constructor(private readonly surface: AgentSurface) {}
 
+  get currentSessionId(): string | undefined {
+    return this.sessionId;
+  }
+
+  get currentModel(): string | undefined {
+    return this.sessionModel;
+  }
+
   async submit(text: string) {
     const emit: Emit = message => this.surface.post(message);
     const root = getWorkspaceRoot();
@@ -40,6 +48,7 @@ export class AgentMode {
     for (let index = 0; index < chain.length; index++) {
       const model = chain[index];
       const isLast = index === chain.length - 1;
+      emit({ type: 'model_chain', models: getModelChain(), active: model });
       emit({ type: 'model_info', model, fallbackFrom: index > 0 ? chain[index - 1] : undefined });
       try {
         if (!this.client || !this.sessionId || this.sessionModel !== model) {
@@ -47,6 +56,7 @@ export class AgentMode {
           this.client = session.client;
           this.sessionId = session.sessionId;
           this.sessionModel = model;
+          emit({ type: 'session_state', sessionId: this.sessionId });
         }
         const result = await processTurn(this.client, this.sessionId!, enriched, emit, () => {
           emit({ type: 'context_receipt', receipt: context.receipt });
@@ -65,6 +75,7 @@ export class AgentMode {
       if (isLast) return;
       this.client = undefined;
       this.sessionId = undefined;
+      emit({ type: 'session_state' });
       const next = chain[index + 1];
       const notice = `Voltix: model "${model}" failed (${lastError}). Switching automatically to "${next}".`;
       getLogger().appendLine(notice);

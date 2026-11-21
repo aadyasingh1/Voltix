@@ -243,6 +243,19 @@ export function buildAgentHtml(): string {
     .future-card .compare-actions button{flex:1 1 auto}
     .history-body{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px}
     .history-files{min-width:0;color:var(--tf-muted);font-size:12px;overflow-wrap:anywhere}
+    .status-block{margin:12px 0;padding:10px 12px;border:1px solid var(--tf-border);border-radius:var(--tf-radius);background:var(--tf-card)}
+    .connection-row,.status-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .connection-row{font-size:12px;overflow-wrap:anywhere}
+    .connection-dot{width:8px;height:8px;border-radius:50%;background:var(--tf-muted);flex:none}
+    .connection-dot.connected{background:var(--tf-ok)}
+    .connection-dot.disconnected{background:var(--tf-bad)}
+    .model-chain{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin:8px 0;color:var(--tf-muted);font-size:11px}
+    .model-chip{padding:2px 7px;border:1px solid var(--tf-border);border-radius:999px}
+    .model-chip.active{border-color:var(--tf-accent);background:var(--tf-tint);color:var(--vscode-foreground);font-weight:600}
+    .fallback-label{font-size:10px}
+    .status-actions{margin-top:8px}
+    .status-actions #cancel{color:var(--vscode-button-foreground);background:var(--tf-bad);border-color:transparent}
+    .status-actions #cancel:hover{filter:brightness(.9)}
     .review-actions{flex-wrap:wrap}
     .review-heading{flex-wrap:wrap}
     @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
@@ -271,6 +284,18 @@ export function buildAgentHtml(): string {
     <span class="brand-text"><span class="brand-name">Voltix</span><span class="brand-tagline">Explore. Experiment. Choose.</span></span>
     <span class="platform-pill">runs on TrueForge</span>
   </header>
+  <section class="status-block" aria-label="TrueForge connection and session">
+    <div class="connection-row" title="Checking TrueForge connection">
+      <span id="connection-dot" class="connection-dot" aria-hidden="true"></span>
+      <span id="connection-label">TrueForge · checking connection…</span>
+    </div>
+    <div id="model-chain" class="model-chain" aria-label="Model fallback chain"></div>
+    <div class="status-actions">
+      <button id="cancel" type="button" hidden>Stop</button>
+      <button id="undo-header" class="secondary" type="button" disabled>Undo last change</button>
+      <button id="open-session" class="secondary" type="button" disabled>Open TrueForge session</button>
+    </div>
+  </section>
   <form id="prompt-form">
     <div class="task-box">
       <label for="input" class="sr-only">Describe a task</label>
@@ -281,7 +306,6 @@ export function buildAgentHtml(): string {
           <button id="show-risks" class="chip" type="button">Show risks of this change</button>
         </div>
         <div class="task-send">
-          <button id="cancel" class="secondary" type="button" hidden>Cancel</button>
           <button id="submit" type="submit">Send <span aria-hidden="true">↑</span></button>
         </div>
       </div>
@@ -363,7 +387,10 @@ export function buildAgentHtml(): string {
       diffMode: 'side-by-side',
       busy: false,
       applying: false,
-      lastSubmittedText: ''
+      lastSubmittedText: '',
+      modelChain: [],
+      activeModel: '',
+      sessionId: ''
     };
     const input = document.getElementById('input');
     const output = document.getElementById('output');
@@ -378,6 +405,11 @@ export function buildAgentHtml(): string {
     const activityList = document.getElementById('activity-list');
     const submitButton = document.getElementById('submit');
     const cancelButton = document.getElementById('cancel');
+    const undoHeaderButton = document.getElementById('undo-header');
+    const openSessionButton = document.getElementById('open-session');
+    const connectionDot = document.getElementById('connection-dot');
+    const connectionLabel = document.getElementById('connection-label');
+    const modelChain = document.getElementById('model-chain');
     const applyButton = document.getElementById('apply');
     const acceptAllButton = document.getElementById('accept-all');
     const rejectAllButton = document.getElementById('reject-all');
@@ -995,6 +1027,16 @@ export function buildAgentHtml(): string {
       if (busy) status.textContent = 'Request in progress...';
       updateReviewSummary();
       renderFutures();
+    }
+
+    function renderModelChain() {
+      clear(modelChain);
+      state.modelChain.forEach((model, index) => {
+        if (index) modelChain.appendChild(makeElement('span', '', '→'));
+        const chip = makeElement('span', 'model-chip' + (model === state.activeModel ? ' active' : ''), model);
+        modelChain.appendChild(chip);
+      });
+      if (state.modelChain.length) modelChain.appendChild(makeElement('span', 'fallback-label', '(fallback in order)'));
     }
 
     function changeState(change) {
@@ -1665,8 +1707,30 @@ export function buildAgentHtml(): string {
         }
       } else if (message.type === 'model_info') {
         modelName.textContent = message.model;
+        state.activeModel = message.model;
+        if (!state.modelChain.includes(message.model)) state.modelChain.unshift(message.model);
+        renderModelChain();
         modelCard.classList.toggle('warning', Boolean(message.fallbackFrom));
         modelNote.textContent = message.fallbackFrom ? '⚠ Fallback: ' + message.fallbackFrom + ' failed' : 'Selected model';
+      } else if (message.type === 'model_chain') {
+        state.modelChain = message.models || [];
+        state.activeModel = message.active || state.activeModel;
+        renderModelChain();
+      } else if (message.type === 'connection_status') {
+        const baseUrl = String(message.baseUrl || '');
+        let host = baseUrl;
+        try {
+          const parsed = new URL(baseUrl);
+          host = parsed.host || parsed.hostname;
+        } catch (_) {}
+        connectionLabel.textContent = 'TrueForge · ' + host;
+        connectionLabel.title = message.connected ? 'Connected to TrueForge at ' + baseUrl :
+          'Could not reach TrueForge at ' + baseUrl + (message.error ? ': ' + message.error : '');
+        connectionDot.classList.toggle('connected', Boolean(message.connected));
+        connectionDot.classList.toggle('disconnected', !message.connected);
+      } else if (message.type === 'session_state') {
+        state.sessionId = message.sessionId || '';
+        openSessionButton.disabled = !state.sessionId;
       } else if (message.type === 'verification') {
         const last = state.verifyEvents[state.verifyEvents.length - 1];
         if (last && last.phase === 'running' && message.phase !== 'fixing') state.verifyEvents.pop();
@@ -1717,6 +1781,7 @@ export function buildAgentHtml(): string {
         resetReview();
       } else if (message.type === 'history_state') {
         state.history = { canUndo: Boolean(message.canUndo), files: message.files || [] };
+        undoHeaderButton.disabled = !state.history.canUndo;
         renderHistory();
       } else if (message.type === 'focus_section' && message.section === 'futures') {
         reveal(futuresArea);
@@ -1724,6 +1789,10 @@ export function buildAgentHtml(): string {
     });
 
     cancelButton.disabled = true;
+    undoHeaderButton.addEventListener('click', () => vscode.postMessage({ type: 'undo_last' }));
+    openSessionButton.addEventListener('click', () => {
+      if (state.sessionId) vscode.postMessage({ type: 'open_session' });
+    });
     renderVerification();
     renderPassport();
     renderHistory();
