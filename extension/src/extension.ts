@@ -81,6 +81,19 @@ export async function activate(context: vscode.ExtensionContext) {
   const errorText = (error: unknown, fallback: string) => error instanceof Error ? error.message : fallback;
   const postHistory = (target: AgentSurface = hub) =>
     target.post({ type: 'history_state', canUndo: canUndo(), files: lastAppliedFiles() });
+  const recentRunsKey = 'voltix.recentRuns';
+  const getRecentRuns = (): string[] =>
+    context.workspaceState.get<string[]>(recentRunsKey, []);
+  const postRecentRuns = (target: AgentSurface = hub) =>
+    target.post({ type: 'recent_runs', runs: getRecentRuns() });
+  const recordRecentRun = async (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    const runs = getRecentRuns().filter(run => run !== trimmed);
+    runs.unshift(trimmed);
+    await context.workspaceState.update(recentRunsKey, runs.slice(0, 5));
+    postRecentRuns();
+  };
 
   finishSafetyProof = async (kind, cancelConfirmed = true) => {
     if (proofInFlight) return;
@@ -180,6 +193,7 @@ export async function activate(context: vscode.ExtensionContext) {
       }
       agentRunning = true;
       hub.beginRun();
+      void recordRecentRun(message.text);
       hub.post({ type: 'run_started', mode: 'agent' });
       hub.post({ type: 'chat_message', role: 'user', content: message.text });
       try {
@@ -215,6 +229,7 @@ export async function activate(context: vscode.ExtensionContext) {
       hub.replayTo(surface, PendingChanges.getAll());
       surface.post({ type: 'replay_boundary', phase: 'end' });
       postHistory(surface);
+      postRecentRuns(surface);
       if (surface === editorPanel && focusFuturesWhenReady) {
         focusFuturesWhenReady = false;
         surface.post({ type: 'focus_section', section: 'futures' });
@@ -227,6 +242,7 @@ export async function activate(context: vscode.ExtensionContext) {
       try {
         await futures.explore(message.text, message.probeCommand, () => {
           hub.beginRun();
+          void recordRecentRun(message.text);
           hub.post({ type: 'run_started', mode: 'futures' });
           hub.post({ type: 'chat_message', role: 'user', content: message.text });
         });

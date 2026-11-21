@@ -176,6 +176,7 @@ export type PanelOutboundMessage =
   | { type: 'change_decision'; change: PendingChange }
   | { type: 'review_reset' }
   | { type: 'history_state'; canUndo: boolean; files: string[] }
+  | { type: 'recent_runs'; runs: string[] }
   | { type: 'focus_section'; section: 'futures' }
   | { type: 'replay_boundary'; phase: 'start' | 'end' }
   | {

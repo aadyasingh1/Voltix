@@ -188,7 +188,7 @@ export function buildAgentHtml(): string {
     [hidden]{display:none!important}
     .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
     .brand{display:flex;align-items:center;gap:10px;margin-bottom:14px}
-    .logo{flex:none;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;color:var(--vx-violet)}
+    .logo{flex:none;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;color:var(--vx-violet)}
     .brand-text{display:flex;flex:1 1 0;flex-direction:column;min-width:0}
     .brand-name{font-size:17px;font-weight:600;line-height:1.2}
     .brand-tagline{color:var(--tf-muted);font-size:11.5px}
@@ -199,8 +199,8 @@ export function buildAgentHtml(): string {
     .task-box textarea:focus,.task-box textarea:focus-visible{border:none;outline:none}
     .task-footer{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:6px 8px 8px 10px}
     .chips{display:flex;flex:1 1 180px;flex-wrap:wrap;gap:6px;min-width:0}
-    button.chip{padding:3px 10px;border:1px solid var(--tf-border);border-radius:999px;color:var(--vscode-foreground);background:transparent;font-size:11.5px}
-    button.chip:hover:not(:disabled),button.chip[aria-expanded="true"]{border-color:var(--vx-violet);background:var(--vx-raised)}
+    button.chip{padding:4px 10px;border:1px solid var(--vx-line);border-radius:6px;color:var(--vscode-foreground);background:transparent;font-size:11.5px}
+    button.chip:hover:not(:disabled),button.chip[aria-expanded="true"]{border-color:var(--vx-line);background:var(--vx-raised)}
     .task-send{display:flex;gap:6px;margin-left:auto}
     #submit{display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:8px;font-weight:600}
     #probe-row{margin-top:10px}
@@ -211,11 +211,10 @@ export function buildAgentHtml(): string {
     button.mode:hover,button.mode[aria-pressed="true"]{background:var(--vx-raised)}
     button.mode[aria-pressed="true"] .mode-icon{color:var(--vx-violet-text)}
     .mode-icon{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;color:var(--vscode-descriptionForeground);font-size:16px;line-height:16px;flex:none}
-    .codicon{font-family:codicon;font-style:normal;font-weight:normal;text-decoration:none;text-transform:none}
-    .codicon-checklist::before{content:"\ea6c"}
-    .codicon-git-compare::before{content:"\ea7c"}
-    .codicon-pulse::before{content:"\eb7c"}
     .recent-runs{margin:8px 0 12px;color:var(--tf-muted);font-size:12px}
+    .recent-runs h2{margin:10px 0 4px;font-size:13px;color:var(--vscode-foreground)}
+    .recent-run-list{display:flex;flex-direction:column;gap:4px;margin:0;padding:0;list-style:none}
+    .recent-run{min-width:0;padding:6px 8px;border:1px solid var(--vx-line);border-radius:8px;overflow-wrap:anywhere}
     .mode-text{display:flex;flex-direction:column;min-width:0}
     .mode-name{font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .mode-sub{display:none}
@@ -279,7 +278,7 @@ export function buildAgentHtml(): string {
     .status-block{margin:12px 0;padding:10px 12px;border:1px solid var(--vx-line);border-radius:12px;background:var(--tf-card)}
     .connection-row,.status-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
     .connection-row{font-size:12px;overflow-wrap:anywhere}
-    .connection-dot{width:8px;height:8px;border-radius:50%;background:var(--tf-muted);flex:none}
+    .connection-dot{display:inline-block;width:8px;height:8px;min-width:8px;min-height:8px;border-radius:50%;background:var(--tf-muted);flex:none}
     .connection-dot.connected{background:var(--tf-ok)}
     .connection-dot.disconnected{background:var(--tf-bad)}
     .model-chain{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin:8px 0;color:var(--tf-muted);font-size:11px}
@@ -287,6 +286,7 @@ export function buildAgentHtml(): string {
     .model-chip.active{border-color:var(--tf-accent);background:var(--tf-tint);color:var(--vscode-foreground);font-weight:600}
     .fallback-label{font-size:10px}
     .status-actions{margin-top:8px}
+    .status-actions button{height:26px;padding:4px 10px;font-size:12px}
     .status-actions #cancel{color:#fff;background:var(--vx-danger);border-color:transparent}
     .status-actions #cancel:hover{filter:brightness(.9)}
     .review-actions{flex-wrap:wrap}
@@ -316,13 +316,13 @@ export function buildAgentHtml(): string {
 </head>
 <body>
   <header class="brand">
-    <span class="logo" aria-hidden="true"><svg width="16" height="16" viewBox="12 12 40 44" fill="var(--vx-violet)"><path d="M15 15 L26 15 L32 34 L39 15 L49 15 L37.5 38 L43 38 L27 54 L30.5 41 L25 41 Z"/></svg></span>
-    <span class="brand-text"><span class="brand-name">Voltix</span><span class="brand-tagline">Explore. Experiment. Choose.</span></span>
+    <span class="logo" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="var(--vx-raised)"/><path d="M15 15 L26 15 L32 34 L39 15 L49 15 L37.5 38 L43 38 L27 54 L30.5 41 L25 41 Z" fill="#6E56CF"/><circle cx="48" cy="48" r="3.6" fill="#D4FF4F"/></svg></span>
+    <span class="brand-text"><span class="brand-name">Voltix</span><span class="brand-tagline">Proof before apply.</span></span>
     <span class="platform-pill">runs on TrueForge</span>
   </header>
   <section class="status-block" aria-label="TrueForge connection and session">
     <div class="connection-row" title="Checking TrueForge connection">
-      <span id="connection-dot" class="connection-dot" aria-hidden="true"></span>
+      <span id="connection-dot" class="connection-dot" title="Checking"></span>
       <span id="connection-label">TrueForge · checking connection…</span>
       <span id="header-model" class="model-chip" title="Model fallback chain">Model</span>
     </div>
@@ -357,11 +357,13 @@ export function buildAgentHtml(): string {
     </div>
   </form>
   <nav class="mode-list" aria-label="Voltix modes">
-    <button class="mode" type="button" data-action="mode-agent" aria-pressed="true" title="Plan, execute and verify"><span class="mode-icon codicon codicon-checklist" aria-hidden="true"></span><span class="mode-name">Agent</span></button>
-    <button class="mode" type="button" data-action="mode-futures" aria-pressed="false" title="Build and compare two designs"><span class="mode-icon codicon codicon-git-compare" aria-hidden="true"></span><span class="mode-name">Futures</span></button>
-    <button class="mode" type="button" data-action="mode-impact" aria-pressed="false" title="Risk and blast radius"><span class="mode-icon codicon codicon-pulse" aria-hidden="true"></span><span class="mode-name">Impact</span></button>
+    <button class="mode" type="button" data-action="mode-agent" aria-pressed="true" title="Plan, execute and verify"><span id="mode-icon-agent" class="mode-icon" aria-hidden="true"></span><span class="mode-name">Agent</span></button>
+    <button class="mode" type="button" data-action="mode-futures" aria-pressed="false" title="Build and compare two designs"><span id="mode-icon-futures" class="mode-icon" aria-hidden="true"></span><span class="mode-name">Futures</span></button>
+    <button class="mode" type="button" data-action="mode-impact" aria-pressed="false" title="Risk and blast radius"><span id="mode-icon-impact" class="mode-icon" aria-hidden="true"></span><span class="mode-name">Impact</span></button>
   </nav>
-  <p id="recent-runs" class="recent-runs">Describe a task. Voltix verifies changes before you apply them.</p>
+  <div id="recent-runs" class="recent-runs">
+    <p>Describe a task. Voltix verifies changes before you apply them.</p>
+  </div>
   <section id="stepper" class="stepper" aria-label="Run progress" hidden></section>
   <div id="status" role="status" aria-live="polite"></div>
   <div id="error-area" aria-live="assertive"></div>
@@ -427,6 +429,7 @@ export function buildAgentHtml(): string {
       lastSubmittedText: '',
       modelChain: [],
       activeModel: '',
+      recentRuns: [],
       sessionId: '',
       safetyProofs: [],
       messages: [],
@@ -1022,6 +1025,26 @@ export function buildAgentHtml(): string {
       return element;
     }
 
+    function svgIcon(pathD) {
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('width', '14');
+      svg.setAttribute('height', '14');
+      svg.setAttribute('viewBox', '0 0 16 16');
+      svg.setAttribute('fill', 'none');
+      svg.setAttribute('stroke', 'currentColor');
+      svg.setAttribute('stroke-width', '1.5');
+      svg.setAttribute('stroke-linecap', 'round');
+      svg.setAttribute('stroke-linejoin', 'round');
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', pathD);
+      svg.appendChild(path);
+      return svg;
+    }
+
+    document.getElementById('mode-icon-agent').appendChild(svgIcon('M3 3h2 M8 3h5 M3 8h2 M8 8h5 M3 13h2 M8 13h5 M2.5 3l1 1 2-2'));
+    document.getElementById('mode-icon-futures').appendChild(svgIcon('M8 2v4 M8 6L4 10v3 M8 6l4 4v3'));
+    document.getElementById('mode-icon-impact').appendChild(svgIcon('M2 9h3l2-5 3 9 2-4h2'));
+
     function actionButton(label, action, className, data, disabled) {
       const button = makeElement('button', className, label);
       button.type = 'button';
@@ -1121,6 +1144,21 @@ export function buildAgentHtml(): string {
       passportArea.hidden = !state.runStarted;
       const recentRuns = document.getElementById('recent-runs');
       if (recentRuns) recentRuns.hidden = state.runStarted;
+    }
+
+    function renderRecentRuns(runs) {
+      state.recentRuns = Array.isArray(runs) ? runs : [];
+      const container = document.getElementById('recent-runs');
+      if (!container) return;
+      clear(container);
+      container.appendChild(makeElement('p', '', 'Describe a task. Voltix verifies changes before you apply them.'));
+      if (state.recentRuns.length) {
+        container.appendChild(makeElement('h2', '', 'Recent runs'));
+        const list = makeElement('ul', 'recent-run-list');
+        state.recentRuns.slice(0, 5).forEach(run => list.appendChild(makeElement('li', 'recent-run', run)));
+        container.appendChild(list);
+      }
+      container.hidden = state.runStarted;
     }
 
     function changeState(change) {
@@ -1884,6 +1922,8 @@ export function buildAgentHtml(): string {
           'Could not reach TrueForge at ' + baseUrl + (message.error ? ': ' + message.error : '');
         connectionDot.classList.toggle('connected', Boolean(message.connected));
         connectionDot.classList.toggle('disconnected', !message.connected);
+        connectionDot.title = message.connected ? 'Connected' : 'Not reachable';
+        connectionDot.setAttribute('aria-label', message.connected ? 'Connected' : 'Not reachable');
       } else if (message.type === 'session_state') {
         state.sessionId = message.sessionId || '';
         openSessionButton.disabled = !state.sessionId;
@@ -1941,6 +1981,8 @@ export function buildAgentHtml(): string {
       } else if (message.type === 'history_state') {
         state.history = { canUndo: Boolean(message.canUndo), files: message.files || [] };
         undoHeaderButton.disabled = !state.history.canUndo;
+      } else if (message.type === 'recent_runs') {
+        renderRecentRuns(message.runs || []);
         renderHistory();
       } else if (message.type === 'focus_section' && message.section === 'futures') {
         reveal(futuresArea);
