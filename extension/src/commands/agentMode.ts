@@ -97,7 +97,7 @@ export class AgentMode {
         if (attempt < RETRY_DELAYS_MS.length) {
           const delay = RETRY_DELAYS_MS[attempt];
           const retryNumber = attempt + 1;
-          emit({ type: 'text_delta', content: `Retry ${retryNumber} of 2 after ${delay / 1000}s\n` });
+          emit({ type: 'model_status', content: `Retry ${retryNumber} of 2 after ${delay / 1000}s` });
           if (!await this.waitForRetry(delay)) {
             this.lastStatus = 'cancelled';
             return;
@@ -119,7 +119,7 @@ export class AgentMode {
       const next = chain[index + 1];
       const notice = `Switched to fallback model ${next}, no click needed`;
       getLogger().appendLine(notice);
-      emit({ type: 'text_delta', content: `${notice}\n` });
+      emit({ type: 'model_status', content: notice });
     }
   }
 

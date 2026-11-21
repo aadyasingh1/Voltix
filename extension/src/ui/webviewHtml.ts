@@ -37,7 +37,13 @@ export function buildAgentHtml(): string {
     .result-banner.failure{border-left-color:var(--vscode-errorForeground)}
     .banner-heading{font-weight:600;margin-bottom:4px}
     .banner-list{margin:6px 0 0;padding-left:20px}
-    #output{margin:8px 0 16px;white-space:pre-wrap;overflow-wrap:anywhere;padding:12px 14px;border:1px solid var(--tf-border);border-left:3px solid var(--tf-accent);border-radius:var(--tf-radius);background:var(--tf-card)}
+    #conversation{display:flex;flex-direction:column;gap:10px;margin:8px 0 16px;max-height:520px;overflow:auto}
+    .chat-message{max-width:96%;padding:10px 12px;border:1px solid var(--tf-border);border-radius:var(--tf-radius);white-space:pre-wrap;overflow-wrap:anywhere}
+    .chat-message.user{align-self:flex-end;background:var(--vscode-input-background)}
+    .chat-message.assistant{align-self:flex-start;border-left:3px solid var(--tf-accent);background:var(--tf-card)}
+    .chat-role{margin-bottom:4px;color:var(--tf-muted);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+    .chat-content{min-height:1em}
+    .chat-empty{padding:10px 12px;color:var(--tf-muted);border:1px dashed var(--tf-border);border-radius:var(--tf-radius)}
     .panel-section{margin:14px 0;border:1px solid var(--tf-border);border-radius:var(--tf-radius);background:var(--tf-card);overflow:hidden}
     .panel-section>summary{cursor:pointer;padding:10px 12px;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--tf-muted)}
     .panel-section>summary:hover{color:var(--vscode-foreground)}
@@ -306,7 +312,7 @@ export function buildAgentHtml(): string {
   <form id="prompt-form">
     <div class="task-box">
       <label for="input" class="sr-only">Describe a task</label>
-      <textarea id="input" placeholder="What should Voltix build or change?" rows="4"></textarea>
+      <textarea id="input" placeholder="Ask for a change. @file to pin context. Enter to send, Shift+Enter for a new line." rows="4"></textarea>
       <div class="task-footer">
         <div class="chips">
           <button id="explore" class="chip" type="button" aria-expanded="false" aria-controls="probe-row">Explore futures</button>
@@ -369,7 +375,7 @@ export function buildAgentHtml(): string {
   </details>
   <section aria-labelledby="response-heading">
     <h2 id="response-heading">Agent response</h2>
-    <div id="output" aria-live="polite">The agent response will appear here.</div>
+    <div id="conversation" aria-live="polite"><div class="chat-empty">Your conversation will appear here.</div></div>
   </section>
   <section aria-labelledby="review-title">
     <div class="review-heading">
@@ -404,10 +410,12 @@ export function buildAgentHtml(): string {
       modelChain: [],
       activeModel: '',
       sessionId: '',
-      safetyProofs: []
+      safetyProofs: [],
+      messages: [],
+      activeResponseIndex: -1
     };
     const input = document.getElementById('input');
-    const output = document.getElementById('output');
+    const conversation = document.getElementById('conversation');
     const fileList = document.getElementById('file-list');
     const reviewDetail = document.getElementById('review-detail');
     const reviewCounts = document.getElementById('review-counts');
@@ -1009,6 +1017,36 @@ export function buildAgentHtml(): string {
       while (element.firstChild) element.removeChild(element.firstChild);
     }
 
+    function renderConversation() {
+      clear(conversation);
+      if (!state.messages.length) {
+        conversation.appendChild(makeElement('div', 'chat-empty', 'Your conversation will appear here.'));
+        return;
+      }
+      state.messages.forEach(message => {
+        const bubble = makeElement('article', 'chat-message ' + message.role);
+        bubble.appendChild(makeElement('div', 'chat-role', message.role === 'user' ? 'You' : 'Voltix'));
+        bubble.appendChild(makeElement('div', 'chat-content', message.content || (message.role === 'assistant' ? 'Thinking…' : '')));
+        conversation.appendChild(bubble);
+      });
+      conversation.scrollTop = conversation.scrollHeight;
+    }
+
+    function appendConversationMessage(role, content) {
+      state.messages.push({ role, content });
+      renderConversation();
+    }
+
+    function ensureAssistantResponse() {
+      if (state.activeResponseIndex >= 0 && state.messages[state.activeResponseIndex]?.role === 'assistant') {
+        return state.messages[state.activeResponseIndex];
+      }
+      state.messages.push({ role: 'assistant', content: '' });
+      state.activeResponseIndex = state.messages.length - 1;
+      return state.messages[state.activeResponseIndex];
+    }
+
+
     function renderActivity() {
       clear(activityList);
       if (state.activities.length === 0) {
@@ -1500,6 +1538,12 @@ export function buildAgentHtml(): string {
       vscode.postMessage({ type: 'submit', text: input.value });
       input.value = '';
     });
+    input.addEventListener('keydown', event => {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        if (!state.busy) document.getElementById('prompt-form').requestSubmit();
+      }
+    });
 
     exploreButton.addEventListener('click', () => setFuturesMode(probeRow.hidden));
     exploreBackButton.addEventListener('click', () => setFuturesMode(false));
@@ -1588,7 +1632,6 @@ export function buildAgentHtml(): string {
       activitySection.open = true;
       clear(errorArea);
       clear(resultArea);
-      output.textContent = '';
       state.activities = [];
       renderActivity();
       state.verifyEvents = [];
@@ -1709,9 +1752,14 @@ export function buildAgentHtml(): string {
         return;
       }
       trackRun(message);
-      if (message.type === 'text_delta') {
-        if (output.textContent === 'The agent response will appear here.') output.textContent = '';
-        output.textContent += message.content || '';
+      if (message.type === 'chat_message') {
+        appendConversationMessage(message.role, message.content || '');
+      } else if (message.type === 'model_status') {
+        appendConversationMessage('assistant', message.content || '');
+      } else if (message.type === 'text_delta') {
+        const response = ensureAssistantResponse();
+        response.content += message.content || '';
+        renderConversation();
       } else if (message.type === 'tool_start') {
         updateActivity({
           id: message.id,
@@ -1731,11 +1779,18 @@ export function buildAgentHtml(): string {
           resultPreview: message.resultPreview || '',
         });
       } else if (message.type === 'text_done') {
-        output.textContent = message.fullContent || '';
+        const response = ensureAssistantResponse();
+        response.content = message.fullContent || '';
+        renderConversation();
       } else if (message.type === 'turn_done') {
         setBusy(false);
         status.textContent = message.status === 'cancelled' ? 'Turn cancelled.' :
           message.status === 'error' ? 'The turn ended with an error.' : 'Turn complete.';
+        if (message.status !== 'done') {
+          appendConversationMessage('assistant', message.message ||
+            (message.status === 'cancelled' ? 'Turn cancelled.' : 'The turn ended with an error.'));
+        }
+        state.activeResponseIndex = -1;
         updateActivity({
           id: 'terminal-' + state.activities.length,
           name: 'Agent turn',
@@ -1746,6 +1801,8 @@ export function buildAgentHtml(): string {
         setBusy(false);
         if (!input.value && state.lastSubmittedText) input.value = state.lastSubmittedText;
         showError(message.message, message.recoverable);
+        appendConversationMessage('assistant', 'Request failed: ' + (message.message || 'An unexpected error occurred.'));
+        state.activeResponseIndex = -1;
         updateActivity({ id: 'error-' + state.activities.length, name: 'Request error', status: message.message || 'Request failed' });
       } else if (message.type === 'context_receipt') {
         renderReceipt(message.receipt || {});
@@ -1823,7 +1880,7 @@ export function buildAgentHtml(): string {
         state.passport = null;
         renderVerification();
         renderPassport();
-        output.textContent = 'Voltix is building each strategy in its own isolated future. Your files are not being changed.';
+        appendConversationMessage('assistant', 'Voltix is building each strategy in its own isolated future. Your files are not being changed.');
         renderFutures();
       } else if (message.type === 'future_progress') {
         state.futures.phases[message.futureId] = { phase: message.phase, label: message.label };
@@ -1833,7 +1890,7 @@ export function buildAgentHtml(): string {
         renderFutures();
       } else if (message.type === 'futures_compare') {
         state.futures.rows = message.rows || [];
-        output.textContent = 'Both futures are ready. Compare the evidence, then choose one.';
+        appendConversationMessage('assistant', 'Both futures are ready. Compare the evidence, then choose one.');
         status.textContent = 'Compare the evidence, then choose a future.';
         renderFutures();
       } else if (message.type === 'regret') {
@@ -1841,13 +1898,14 @@ export function buildAgentHtml(): string {
         renderFutures();
       } else if (message.type === 'futures_chosen') {
         state.futures.chosen = { futureId: message.futureId, otherId: message.otherId };
-        output.textContent = 'Future ' + message.futureId + ' moved to Proposed files. Nothing is written until you accept and apply it.';
+        appendConversationMessage('assistant', 'Future ' + message.futureId + ' moved to Proposed files. Nothing is written until you accept and apply it.');
         status.textContent = 'Chose Future ' + message.futureId + ' over ' + message.otherId + '. Review its changes below.';
         renderFutures();
       } else if (message.type === 'futures_cleared') {
         state.futures = emptyFutures();
         renderFutures();
       } else if (message.type === 'run_started') {
+        state.activeResponseIndex = -1;
         startRun(message.mode);
       } else if (message.type === 'change_decision' && message.change) {
         syncDecision(message.change);

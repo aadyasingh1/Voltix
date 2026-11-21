@@ -136,6 +136,8 @@ export interface ComparisonRow {
 export type PanelOutboundMessage =
   | { type: 'text_delta'; content: string }
   | { type: 'text_done'; fullContent: string }
+  | { type: 'chat_message'; role: 'user' | 'assistant'; content: string }
+  | { type: 'model_status'; content: string }
   | { type: 'tool_start'; id: string; name: string; argsPreview: string; status?: 'requested' | 'approval_required' }
   | { type: 'tool_done'; id: string; name?: string; summary?: string; resultPreview: string; isError?: boolean }
   | { type: 'context_receipt'; receipt: ContextReceipt }

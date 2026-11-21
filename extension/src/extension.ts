@@ -181,6 +181,7 @@ export async function activate(context: vscode.ExtensionContext) {
       agentRunning = true;
       hub.beginRun();
       hub.post({ type: 'run_started', mode: 'agent' });
+      hub.post({ type: 'chat_message', role: 'user', content: message.text });
       try {
         await agentMode.submit(message.text);
         if (agentMode.lastStatus === 'cancelled' && stopPressedAt !== undefined) await finishSafetyProof('stopped');
@@ -227,6 +228,7 @@ export async function activate(context: vscode.ExtensionContext) {
         await futures.explore(message.text, message.probeCommand, () => {
           hub.beginRun();
           hub.post({ type: 'run_started', mode: 'futures' });
+          hub.post({ type: 'chat_message', role: 'user', content: message.text });
         });
       } catch (error) {
         hub.post({ type: 'error', message: errorText(error, 'Exploring futures failed'), recoverable: true });
