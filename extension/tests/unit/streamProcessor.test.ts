@@ -100,6 +100,59 @@ test('reports an unexpected stream end instead of inventing a successful complet
   });
 });
 
+test('emits submit_changes approval-required events and compaction completions', async () => {
+  const messages: PanelOutboundMessage[] = [];
+  const client = fakeClient([
+    {
+      type: 'turn.created',
+      turnId: 'turn-1',
+      threadId: 'thread-1',
+      id: 'created-1',
+      createdAt: '2026-01-01',
+      state: { status: 'running' },
+      previousTurnId: null,
+    },
+    {
+      type: 'model.message',
+      id: 'message-1',
+      threadId: 'thread-1',
+      toolCalls: [{
+        id: 'approval-1',
+        function: { name: 'submit_changes', arguments: '{"summary":"Add config command"}' },
+      }],
+    },
+    {
+      type: 'tool.approval_required',
+      id: 'approval-required-1',
+      createdAt: '2026-01-01',
+      threadId: 'thread-1',
+      toolCalls: [{ id: 'approval-1', sourceEventId: 'message-1' }],
+    },
+    {
+      type: 'thread.context_compaction_finished',
+      id: 'compaction-1',
+      createdAt: '2026-01-01',
+      threadId: 'thread-1',
+      trigger: { type: 'context_threshold_exceeded', contextTokens: 72000, thresholdTokens: 70000 },
+      durationMs: 12,
+      usage: { promptTokens: 72000, completionTokens: 100, totalTokens: 72100 },
+    },
+  ]);
+  await processTurn(client, 'session-1', 'implement', message => messages.push(message));
+  expect(messages).toContainEqual({
+    type: 'approval_required',
+    toolCallId: 'approval-1',
+    threadId: 'thread-1',
+    turnId: 'turn-1',
+    summary: 'Add config command',
+  });
+  expect(messages).toContainEqual({
+    type: 'context_compacted',
+    triggerContextTokens: 72000,
+    thresholdTokens: 70000,
+  });
+});
+
 test('reports a cancelled turn from the terminal SDK event', async () => {
   const messages: PanelOutboundMessage[] = [];
   const client = fakeClient([

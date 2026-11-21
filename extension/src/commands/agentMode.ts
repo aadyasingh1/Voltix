@@ -177,7 +177,7 @@ export class AgentMode {
     if (this.client && this.sessionId) await this.client.sessions.cancel(this.sessionId, {});
   }
 
-  async approveSubmittedChanges(): Promise<void> {
+  async approveSubmittedChanges(rejectedFiles: string[] = []): Promise<void> {
     if (!this.client || !this.sessionId || !this.pendingApproval) return;
     const approval = this.pendingApproval;
     await this.client.sessions.createTurnEvents(this.sessionId, approval.turnId, {
@@ -188,6 +188,12 @@ export class AgentMode {
         approval: { status: 'allow' },
       }],
     });
+    if (rejectedFiles.length) {
+      const note = 'The user rejected hunks in these files: ' + [...new Set(rejectedFiles)].join(', ') +
+        '. Do not re-propose those rejected hunks; continue only with the accepted changes.';
+      await processTurn(this.client, this.sessionId, note, message => this.surface.post(message), undefined, {});
+    }
+    this.pendingApproval = undefined;
   }
 
   async denySubmittedChanges(reason = 'User rejected changes'): Promise<void> {
@@ -201,6 +207,7 @@ export class AgentMode {
         approval: { status: 'deny', reason },
       }],
     });
+    this.pendingApproval = undefined;
   }
 
   private waitForRetry(delay: number): Promise<boolean> {

@@ -45,6 +45,7 @@ test('uses submit_changes approval with deferred read tools and preloaded write 
           preloadTools: string[];
           requireApprovalForTools: string[];
         }>;
+          config: { contextManagement: { compaction: { enabled: boolean; trigger: { type: 'input_tokens'; value: number } } } };
         requireApprovalForTools?: string[];
       };
     };
@@ -65,6 +66,12 @@ test('uses submit_changes approval with deferred read tools and preloaded write 
     }),
   ]);
   expect(Object.prototype.hasOwnProperty.call(spec, 'requireApprovalForTools')).toBe(false);
+  expect(spec.config.contextManagement).toEqual({
+    compaction: {
+      enabled: true,
+      trigger: { type: 'input_tokens', value: 70000 },
+    },
+  });
 });
 
 test('uses the model passed in (fallback) instead of the configured one', async () => {

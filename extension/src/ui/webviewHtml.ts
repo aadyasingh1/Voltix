@@ -1915,6 +1915,13 @@ export function buildAgentHtml(): string {
       trackRun(message);
       if (message.type === 'mention_suggestions') {
         renderMentionSuggestions(message);
+      } else if (message.type === 'context_compacted') {
+        updateActivity({
+          id: 'context-compaction-' + message.thresholdTokens,
+          name: 'Context compaction',
+          summary: 'Context compacted at ' + message.triggerContextTokens.toLocaleString() + ' tokens (threshold ' + message.thresholdTokens.toLocaleString() + ')',
+          status: 'Context compacted',
+        });
       } else if (message.type === 'approval_required') {
         state.pendingApproval = { toolCallId: message.toolCallId, summary: message.summary };
         approvalBanner.hidden = false;

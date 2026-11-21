@@ -7,6 +7,16 @@
 
 Voltix defers read-tool schemas (file listing, search, and reading) in TrueForge context so the initial agent prompt stays smaller; edit, verify, run, and submit tools remain preloaded so writes and review never stall.
 
+## TrueForge features used
+
+- **Named sessions:** Each task receives a readable title and remains linkable from the TrueForge Sessions view.
+- **Streaming events:** Voltix consumes SSE turn, model, tool, approval, cancellation, and compaction events in real time.
+- **Cancellation:** Stop cancels the active TrueForge turn and verifies the workspace remains unchanged.
+- **MCP tools:** Voltix exposes guarded workspace read, edit, verification, command, and submit tools through a loopback MCP server.
+- **Approval-driven review:** `submit_changes` pauses the TrueForge turn until accepted hunks are applied or changes are rejected.
+- **Deferred tool loading:** Read-only discovery tools stay deferred while write, verification, command, and submit tools remain preloaded.
+- **Context compaction:** Long sessions compact automatically after 70,000 estimated input tokens and report it in the Voltix activity log.
+
 [![VS Code extension](https://img.shields.io/badge/VS_Code-extension-007ACC?logo=visualstudiocode&logoColor=white)](https://code.visualstudio.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![MCP](https://img.shields.io/badge/MCP-workspace_tools-5B5FC7)](https://modelcontextprotocol.io/)

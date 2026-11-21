@@ -296,13 +296,17 @@ export async function activate(context: vscode.ExtensionContext) {
       PendingChanges.rejectFile(message.changeId);
       syncDecision(message.changeId);
     } else if (message.type === 'apply_accepted') {
+      const rejectedFiles = PendingChanges.getAll()
+        .filter(change => change.fileDecision === false ||
+          change.hunks.some(hunk => hunk.accepted === false))
+        .map(change => change.path);
       applyWithUndo();
-      await agentMode.approveSubmittedChanges();
+      await agentMode.approveSubmittedChanges(rejectedFiles);
       hub.post({ type: 'approval_decision', toolCallId: 'submit_changes', decision: 'allow' });
     } else if (message.type === 'discard_all') {
       await discardReview();
-      await agentMode.denySubmittedChanges('User rejected changes');
-      hub.post({ type: 'approval_decision', toolCallId: 'submit_changes', decision: 'deny', reason: 'User rejected changes' });
+      await agentMode.denySubmittedChanges('User rejected the changes');
+      hub.post({ type: 'approval_decision', toolCallId: 'submit_changes', decision: 'deny', reason: 'User rejected the changes' });
     } else if (message.type === 'copy_passport') {
       const passport = agentMode.lastPassport;
       if (passport) {

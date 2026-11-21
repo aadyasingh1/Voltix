@@ -28,7 +28,15 @@ export function buildAgentSpec(modelName: string) {
       preloadTools: server.preload_tools ?? [],
       requireApprovalForTools: server.require_approval_for_tools ?? [],
     })),
-    config: { iterationLimit: spec.config.iteration_limit },
+    config: {
+      iterationLimit: spec.config.iteration_limit,
+      contextManagement: {
+        compaction: {
+          enabled: true,
+          trigger: { type: 'input_tokens', value: 70000 },
+        },
+      },
+    },
   };
 }
 

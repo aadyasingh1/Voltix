@@ -158,6 +158,12 @@ export async function processTurn(
         summary: call ? formatToolSummary(call.name, call.arguments, event.content) : undefined,
         resultPreview: safePreview(event.content, 500),
       });
+    } else if (event.type === 'thread.context_compaction_finished') {
+      emit({
+        type: 'context_compacted',
+        triggerContextTokens: event.trigger.contextTokens,
+        thresholdTokens: event.trigger.thresholdTokens,
+      });
     } else if (event.type === 'turn.done') {
       sawTerminalEvent = true;
       if (event.state.status === 'error' && options.deferErrors) {

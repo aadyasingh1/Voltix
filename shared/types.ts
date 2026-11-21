@@ -180,6 +180,7 @@ export type PanelOutboundMessage =
   | { type: 'recent_runs'; runs: string[] }
   | { type: 'approval_required'; toolCallId: string; threadId: string; turnId: string; summary: string }
   | { type: 'approval_decision'; toolCallId: string; decision: 'allow' | 'deny'; reason?: string }
+  | { type: 'context_compacted'; triggerContextTokens: number; thresholdTokens: number }
   | { type: 'mention_suggestions'; query: string; files: string[]; symbols: Array<{ name: string; kind: string; path: string; line: number }> }
   | { type: 'focus_section'; section: 'futures' }
   | { type: 'replay_boundary'; phase: 'start' | 'end' }
