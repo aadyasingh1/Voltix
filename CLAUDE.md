@@ -64,7 +64,7 @@ VS Code user settings:
 ```json
 "voltix.model": "openrouter/qwen3-coder",
 "voltix.fallbackModels": ["openrouter/gemma-4-26b-paid"],
-"voltix.contextTokenBudget": 3000
+"voltix.contextTokenBudget": 8000
 ```
 Task C: `"voltix.model": "openrouter-broken/gemma-4-26b", "voltix.fallbackModels": []`.
 

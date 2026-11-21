@@ -579,7 +579,8 @@ export function buildAgentHtml(): string {
     function startStepper(mode) {
       const defs = [['read', 'Reading code'], ['plan', 'Planning'], ['implement', 'Implementing'], ['verify', 'Verifying in sandbox']];
       if (mode === 'futures') defs.push(['compare', 'Comparing futures']);
-      defs.push(['ready', mode === 'futures' ? 'Ready to choose' : 'Ready for review']);
+      else defs.push(['review', 'Waiting for review'], ['applied', 'Applied']);
+      defs.push(['ready', mode === 'futures' ? 'Ready to choose' : 'Finished']);
       stopRunTimer();
       state.run = {
         mode,
@@ -588,6 +589,9 @@ export function buildAgentHtml(): string {
         current: -1,
         verifyOutcome: null,
         results: 0,
+        files: new Map(),
+        appliedFiles: new Set(),
+        toolNames: new Map(),
         steps: defs.map(def => ({ key: def[0], label: def[1], status: 'pending', elapsed: 0, startedAt: null, visited: false, replayed: false })),
       };
       setRunStep('read');
@@ -606,6 +610,7 @@ export function buildAgentHtml(): string {
     function setRunStep(key) {
       const run = state.run;
       if (!run || run.finished) return;
+      if (run.appliedFiles.size && key !== 'applied') return;
       const index = run.steps.findIndex(step => step.key === key);
       if (index < 0 || index === run.current) return;
       const now = Date.now();
@@ -627,35 +632,104 @@ export function buildAgentHtml(): string {
       const run = state.run;
       if (!run || run.finished) return;
       pauseActiveStep(Date.now());
+      const needsReview = outcome === 'ready' && run.mode === 'agent' && !run.appliedFiles.size && run.files.size > 0;
       run.finished = true;
-      run.outcome = outcome;
+      run.outcome = needsReview ? 'review' : outcome;
       stopRunTimer();
-      if (outcome === 'ready') {
+      if (needsReview) {
+        const reviewIndex = run.steps.findIndex(step => step.key === 'review');
+        run.steps.forEach((step, index) => {
+          if (index < reviewIndex) step.status = step.visited ? 'done' : 'skipped';
+          else step.status = index === reviewIndex ? 'active' : 'pending';
+        });
+        run.steps[reviewIndex].visited = true;
+        run.current = reviewIndex;
+        applyVerifyOutcome(run);
+      } else if (outcome === 'ready') {
         run.steps.forEach(step => { step.status = step.visited ? 'done' : 'skipped'; });
         const last = run.steps[run.steps.length - 1];
         last.status = 'done';
         last.visited = true;
-        if (run.mode === 'agent' && !state.changes.some(change => !state.outcomes.has(change.id))) last.label = 'Finished, no changes';
-        const verify = run.steps.find(step => step.key === 'verify');
-        if (run.verifyOutcome === 'failed') verify.status = 'failed';
-        else if (run.verifyOutcome === 'skipped') verify.status = 'skipped';
-      } else if (run.current >= 0) {
+        if (run.mode === 'agent') last.label = finishedLabel(run);
+        applyVerifyOutcome(run);
+      } else if (run.current >= 0 && run.steps[run.current].key !== 'applied') {
         run.steps[run.current].status = 'failed';
       }
       renderStepper();
     }
 
+    function applyVerifyOutcome(run) {
+      const verify = run.steps.find(step => step.key === 'verify');
+      if (run.verifyOutcome === 'failed') verify.status = 'failed';
+      else if (run.verifyOutcome === 'skipped') verify.status = 'skipped';
+    }
+
+    function finishedLabel(run) {
+      const count = run.appliedFiles.size || new Set(run.files.values()).size;
+      if (!count) return 'Finished, no changes';
+      return 'Finished · ' + count + (count === 1 ? ' file' : ' files') + ' changed';
+    }
+
+    function markApplied(run, paths) {
+      if (run.mode !== 'agent') return;
+      const runPaths = new Set(run.files.values());
+      const appliedHere = paths.filter(path => runPaths.has(path));
+      if (!appliedHere.length) return;
+      appliedHere.forEach(path => run.appliedFiles.add(path));
+      const appliedStep = run.steps.find(step => step.key === 'applied');
+      if (run.outcome === 'review') {
+        appliedStep.visited = true;
+        run.finished = false;
+        finishRun('ready');
+      } else if (run.finished) {
+        if (run.outcome === 'ready') run.steps[run.steps.length - 1].label = finishedLabel(run);
+        renderStepper();
+      } else {
+        setRunStep('applied');
+        pauseActiveStep(Date.now());
+        appliedStep.status = 'done';
+        renderStepper();
+      }
+    }
+
+    /** Deferred tools arrive wrapped in call_tool; the timeline needs the real tool name. */
+    function runToolName(message) {
+      const name = String(message.name || '');
+      if (name !== 'call_tool') return name;
+      const preview = String(message.argsPreview || '');
+      const match = preview.match(/"tool_name"[ ]*:[ ]*"([^"]+)"/) || preview.match(/"(?:name|tool)"[ ]*:[ ]*"([^"]+)"/);
+      return match ? match[1] : name;
+    }
+
     function trackRun(message) {
       const run = state.run;
-      if (!run || run.finished) return;
+      if (!run) return;
+      if (message.type === 'apply_result') {
+        markApplied(run, Array.isArray(message.applied) ? message.applied : []);
+        return;
+      }
+      if (run.finished) return;
       const current = run.current >= 0 ? run.steps[run.current].key : '';
+      const readTools = /read_file|search_workspace|list_workspace_files/;
       if (message.type === 'tool_start') {
-        const name = String(message.name || '');
+        const name = runToolName(message);
+        run.toolNames.set(message.id, name);
         if (/edit_file|propose_file_change/.test(name)) setRunStep('implement');
         else if (/verify_changes/.test(name)) setRunStep('verify');
-        else if (/read_file|search_workspace|list_workspace_files/.test(name) && (current === 'read' || current === 'plan')) setRunStep('read');
+        else if (readTools.test(name) && (current === 'read' || current === 'plan')) setRunStep('read');
       } else if (message.type === 'tool_done') {
-        if (current === 'read' && /read_file|search_workspace|list_workspace_files/.test(String(message.name || ''))) setRunStep('plan');
+        const name = run.toolNames.get(message.id) || String(message.summary || message.name || '').split(' ')[0];
+        if (/edit_file|propose_file_change/.test(name)) setRunStep('implement');
+        else if (current === 'read' && readTools.test(name)) setRunStep('plan');
+      } else if (message.type === 'pending_change' && message.change && run.mode === 'agent') {
+        run.files.set(message.change.id, message.change.path);
+        setRunStep('implement');
+      } else if (message.type === 'change_removed') {
+        run.files.delete(message.changeId);
+      } else if (message.type === 'model_info' && message.fallbackFrom) {
+        run.files.clear();
+      } else if (message.type === 'approval_required') {
+        setRunStep('review');
       } else if (message.type === 'text_delta') {
         if (current === 'read' && message.content) setRunStep('plan');
       } else if (message.type === 'verification') {
@@ -696,6 +770,7 @@ export function buildAgentHtml(): string {
       head.appendChild(makeElement('span', 'card-title', run.mode === 'futures' ? 'Futures run' : 'Agent run'));
       if (!run.finished) head.appendChild(makeElement('span', 'pill info', 'Running'));
       else if (run.outcome === 'ready') head.appendChild(makeElement('span', 'pill ok', 'Complete'));
+      else if (run.outcome === 'review') head.appendChild(makeElement('span', 'pill info', 'Needs review'));
       else head.appendChild(makeElement('span', 'pill ' + (run.outcome === 'cancelled' ? 'muted' : 'bad'), run.outcome === 'cancelled' ? 'Cancelled' : 'Failed'));
       stepper.appendChild(head);
       const finishedSteps = run.steps.filter(step => step.status === 'done' || step.status === 'skipped').length;
@@ -706,7 +781,7 @@ export function buildAgentHtml(): string {
       track.setAttribute('aria-valuemax', '100');
       track.setAttribute('aria-valuenow', String(percent));
       track.setAttribute('aria-label', 'Run progress');
-      const fill = makeElement('div', 'progress-fill' + (!run.finished ? ' running' : run.outcome === 'ready' ? '' : ' failed'));
+      const fill = makeElement('div', 'progress-fill' + (!run.finished ? ' running' : run.outcome === 'ready' || run.outcome === 'review' ? '' : ' failed'));
       fill.style.width = percent + '%';
       track.appendChild(fill);
       stepper.appendChild(track);
