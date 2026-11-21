@@ -5,6 +5,7 @@ import { AgentMode } from './commands/agentMode';
 import { runInlineEdit } from './commands/inlineEdit';
 import { VoltixDiffProvider } from './review/diffProvider';
 import { PendingChanges } from './review/pendingChanges';
+import { getActiveStore, getToolPolicy } from './review/activeStore';
 import { applyAndRecord, undoLastApply, canUndo } from './review/undoStack';
 import { captureOriginalFile } from './review/conflictDetector';
 import { startMcpServer } from './tools/mcpServer';
@@ -113,16 +114,24 @@ export async function activate(context: vscode.ExtensionContext) {
   );
 
   try {
-    const findPending = (absPath: string) => PendingChanges.getAll().find(change => change.absPath === absPath);
+    // Tools always act on the active store: the normal review list, or the future being built.
+    const findPending = (absPath: string) => getActiveStore().getAll().find(change => change.absPath === absPath);
     mcpServer = await startMcpServer(7891, {
       getPendingContent: absPath => findPending(absPath)?.proposedContent,
+      editBlockedReason: () => getToolPolicy().allowEdits ? undefined : 'This step is read-only. Do not edit files; reply with the requested JSON.',
+      commandBlockedReason: () => getToolPolicy().allowCommands ? undefined : 'run_command is disabled here because it would run in the real workspace. Use verify_changes to run tests in the sandbox.',
       verify: async command => {
-        panel?.post({ type: 'verification', phase: 'running', command, summary: 'Agent is running the tests against its pending changes in a sandbox…', round: 0, maxRounds: 0, source: 'agent' });
-        const record = await verifyPending(command, 'agent');
-        panel?.post({
-          type: 'verification', phase: record.passed ? 'passed' : 'failed', command: record.command, summary: record.summary,
-          round: 0, maxRounds: 0, source: 'agent', output: record.output.slice(-4000), durationMs: record.durationMs,
-        });
+        if (!getToolPolicy().allowVerify) throw new Error('This step is read-only. Do not run tests; reply with the requested JSON.');
+        const store = getActiveStore();
+        const isDefault = store === PendingChanges;
+        if (isDefault) panel?.post({ type: 'verification', phase: 'running', command, summary: 'Agent is running the tests against its pending changes in a sandbox…', round: 0, maxRounds: 0, source: 'agent' });
+        const record = await verifyPending(command, 'agent', store);
+        if (isDefault) {
+          panel?.post({
+            type: 'verification', phase: record.passed ? 'passed' : 'failed', command: record.command, summary: record.summary,
+            round: 0, maxRounds: 0, source: 'agent', output: record.output.slice(-4000), durationMs: record.durationMs,
+          });
+        }
         return formatForAgent(record);
       },
       onProposedChange: input => {
@@ -130,24 +139,26 @@ export async function activate(context: vscode.ExtensionContext) {
         if (!root) return;
         const guarded = guardWorkspacePath(input.path, root);
         if (!guarded.allowed) return;
+        const store = getActiveStore();
+        const isDefault = store === PendingChanges;
         // Several edits to one file merge into ONE proposal, diffed against the original on disk.
         const existing = findPending(guarded.absPath);
         const original = existing
           ? { originalExists: existing.originalExists, originalContent: existing.originalContent }
           : captureOriginalFile(guarded.absPath);
         if (existing) {
-          PendingChanges.remove(existing.id);
-          panel?.post({ type: 'change_removed', changeId: existing.id });
+          store.remove(existing.id);
+          if (isDefault) panel?.post({ type: 'change_removed', changeId: existing.id });
         }
         const reason = existing && existing.reason !== input.reason ? `${existing.reason}\n${input.reason}` : input.reason;
-        const change = PendingChanges.add({
+        const change = store.add({
           path: vscode.workspace.asRelativePath(guarded.absPath),
           absPath: guarded.absPath,
           ...original,
           proposedContent: input.proposedContent,
           reason,
         });
-        panel?.post({ type: 'pending_change', change });
+        if (isDefault) panel?.post({ type: 'pending_change', change });
       },
     });
     logger.appendLine('MCP server listening on http://127.0.0.1:7891/mcp');

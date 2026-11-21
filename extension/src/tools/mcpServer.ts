@@ -19,6 +19,10 @@ export interface McpHooks {
   getPendingContent?: (absPath: string) => string | undefined;
   /** Runs a test command against the pending changes in a sandbox copy of the workspace. */
   verify?: (command: string) => Promise<string>;
+  /** Why edits are refused for the current run (planning is read-only). Undefined means allowed. */
+  editBlockedReason?: () => string | undefined;
+  /** Why run_command is refused for the current run (futures may only test in the sandbox). */
+  commandBlockedReason?: () => string | undefined;
 }
 
 type ProposedChangeHandler = McpHooks['onProposedChange'];
@@ -72,6 +76,8 @@ function buildServer(hooks: McpHooks): McpServer {
     new_string: z.string(),
     reason: z.string(),
   }, async ({ path: file, old_string, new_string, reason }: { path: string; old_string: string; new_string: string; reason: string }) => {
+    const editBlocked = hooks.editBlockedReason?.();
+    if (editBlocked) return { isError: true, content: [{ type: 'text', text: editBlocked }] };
     const guarded = guardWorkspacePath(file);
     if (!guarded.allowed) return { isError: true, content: [{ type: 'text', text: guarded.error }] };
     if (!fs.existsSync(guarded.absPath)) {
@@ -89,6 +95,8 @@ function buildServer(hooks: McpHooks): McpServer {
     proposedContent: z.string(),
     reason: z.string(),
   }, async ({ path: file, proposedContent, reason }: { path: string; proposedContent: string; reason: string }) => {
+    const editBlocked = hooks.editBlockedReason?.();
+    if (editBlocked) return { isError: true, content: [{ type: 'text', text: editBlocked }] };
     const guarded = guardWorkspacePath(file);
     if (!guarded.allowed) return { isError: true, content: [{ type: 'text', text: guarded.error }] };
     // Whole-file rewrites of existing files silently drop content the model never read
@@ -112,6 +120,8 @@ function buildServer(hooks: McpHooks): McpServer {
   });
 
   (server as any).tool('run_command', { command: z.string(), cwd: z.string().optional() }, async ({ command, cwd }: { command: string; cwd?: string }) => {
+    const commandBlocked = hooks.commandBlockedReason?.();
+    if (commandBlocked) return { isError: true, content: [{ type: 'text', text: commandBlocked }] };
     const root = getWorkspaceRoot();
     const resolvedCwd = cwd ? path.resolve(root, cwd) : root;
     if (resolvedCwd !== root && !resolvedCwd.startsWith(root + path.sep)) {

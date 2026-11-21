@@ -1,4 +1,4 @@
-import { PendingChanges } from '../review/pendingChanges';
+import { PendingChanges, type PendingChangeStore } from '../review/pendingChanges';
 import { getWorkspaceRoot } from '../tools/pathGuard';
 import { getSettings } from '../config/settings';
 import { fingerprintFiles, inferVerifyCommand, runInSandbox, type SandboxFile, type SandboxResult } from './sandbox';
@@ -8,41 +8,66 @@ export interface VerificationRecord extends SandboxResult {
   source: 'agent' | 'auto';
 }
 
-let lastRecord: VerificationRecord | undefined;
-let lastAgentCommand: string | undefined;
-
-export function pendingFiles(): SandboxFile[] {
-  return PendingChanges.getAll().map(change => ({ path: change.path, content: change.proposedContent }));
+interface VerifierState {
+  lastRecord?: VerificationRecord;
+  lastAgentCommand?: string;
 }
 
-export function currentFingerprint(): string {
-  return fingerprintFiles(pendingFiles());
+/** Each store keeps its own last result, so one future can never reuse another's verification. */
+const states = new WeakMap<PendingChangeStore, VerifierState>();
+
+function stateFor(store: PendingChangeStore): VerifierState {
+  let state = states.get(store);
+  if (!state) {
+    state = {};
+    states.set(store, state);
+  }
+  return state;
+}
+
+export function pendingFiles(store: PendingChangeStore = PendingChanges): SandboxFile[] {
+  return store.getAll().map(change => ({ path: change.path, content: change.proposedContent }));
+}
+
+export function currentFingerprint(store: PendingChangeStore = PendingChanges): string {
+  return fingerprintFiles(pendingFiles(store));
 }
 
 /** The verification result for the CURRENT pending changes, if one exists. */
-export function currentRecord(): VerificationRecord | undefined {
-  return lastRecord && lastRecord.fingerprint === currentFingerprint() ? lastRecord : undefined;
+export function currentRecord(store: PendingChangeStore = PendingChanges): VerificationRecord | undefined {
+  const { lastRecord } = stateFor(store);
+  return lastRecord && lastRecord.fingerprint === currentFingerprint(store) ? lastRecord : undefined;
 }
 
-export function resetVerification() {
-  lastRecord = undefined;
-  lastAgentCommand = undefined;
+export function resetVerification(store: PendingChangeStore = PendingChanges) {
+  states.delete(store);
+}
+
+/** Moves a verification result along with its changes (used when a future is chosen). */
+export function copyVerification(from: PendingChangeStore, to: PendingChangeStore) {
+  states.set(to, { ...stateFor(from) });
 }
 
 /** Command priority: user setting, then the command the agent chose, then an inferred one. */
-export function chooseCommand(): string | undefined {
+export function chooseCommand(store: PendingChangeStore = PendingChanges): string | undefined {
   const configured = getSettings().verifyCommand.trim();
   if (configured) return configured;
+  const { lastAgentCommand } = stateFor(store);
   if (lastAgentCommand) return lastAgentCommand;
-  return inferVerifyCommand(getWorkspaceRoot(), pendingFiles());
+  return inferVerifyCommand(getWorkspaceRoot(), pendingFiles(store));
 }
 
-export async function verifyPending(command: string, source: 'agent' | 'auto'): Promise<VerificationRecord> {
-  const files = pendingFiles();
-  if (source === 'agent') lastAgentCommand = command;
+export async function verifyPending(
+  command: string,
+  source: 'agent' | 'auto',
+  store: PendingChangeStore = PendingChanges
+): Promise<VerificationRecord> {
+  const files = pendingFiles(store);
+  const state = stateFor(store);
+  if (source === 'agent') state.lastAgentCommand = command;
   const result = await runInSandbox(getWorkspaceRoot(), files, command);
-  lastRecord = { ...result, fingerprint: fingerprintFiles(files), source };
-  return lastRecord;
+  state.lastRecord = { ...result, fingerprint: fingerprintFiles(files), source };
+  return state.lastRecord;
 }
 
 /** What the agent sees after verify_changes (kept well under TrueForge's 24,000-character tool limit). */
