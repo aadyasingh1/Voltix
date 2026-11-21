@@ -32,7 +32,10 @@ type ProposedChangeHandler = McpHooks['onProposedChange'];
 // In stateless mode the MCP SDK requires a NEW server + transport for every HTTP request
 // (SDK 1.32.2 rejects a reused stateless transport with HTTP 500 on the second request).
 function buildServer(hooks: McpHooks): McpServer {
-  const server = new McpServer({ name: 'vscode-workspace', version: '1.0.0' });
+  const server = new McpServer({
+    name: 'Voltix workspace tools: list, search and read files in the open VS Code workspace',
+    version: '1.0.0',
+  });
 
   (server as any).tool('list_workspace_files', { pattern: z.string().optional() }, async ({ pattern }: { pattern?: string }) => {
     const root = getWorkspaceRoot();

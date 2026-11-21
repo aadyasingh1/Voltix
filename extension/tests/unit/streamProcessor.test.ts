@@ -88,6 +88,12 @@ test('formats concise summaries for search, edits, and verification', () => {
     .toBe('edit_file src/app.py → +2 −1 (proposal, nothing on disk)');
   expect(formatToolSummary('verify_changes', '{}', 'PASSED: 60 passed in 1.2s\nCommand: pytest'))
     .toBe('verify_changes → 60 passed in 1.2s');
+  expect(formatToolSummary('list_tools', '{}', ''))
+    .toBe('Discovered tools on voltix (deferred loading)');
+  expect(formatToolSummary('get_tool_info', '{"tool_name":"search_workspace"}', ''))
+    .toBe('Loaded schema: search_workspace');
+  expect(formatToolSummary('call_tool', '{"tool_name":"search_workspace","arguments":{"query":"FlaskGroup"}}', ''))
+    .toBe("search 'FlaskGroup'");
 });
 
 test('reports an unexpected stream end instead of inventing a successful completion', async () => {

@@ -1182,6 +1182,23 @@ export function buildAgentHtml(): string {
     function toolStartSummary(name, argsPreview) {
       let args = {};
       try { args = JSON.parse(argsPreview || '{}'); } catch (_) {}
+      if (name === 'list_tools') return 'Discovered tools on voltix (deferred loading) → running';
+      if (name === 'get_tool_info') {
+        const toolName = args.tool_name || args.name || args.tool || 'workspace tool';
+        return 'Loaded schema: ' + toolName + ' → running';
+      }
+      if (name === 'call_tool') {
+        const innerName = args.tool_name || args.name || args.tool || 'workspace tool';
+        const innerArgs = args.arguments && typeof args.arguments === 'object' ? args.arguments : args;
+        if (innerName === 'search_workspace') return "search '" + String(innerArgs.query || '').replace(/\s+/g, ' ') + "' → running";
+        if (innerName === 'read_file') {
+          const start = Number(innerArgs.start_line) || 1;
+          const end = Number(innerArgs.end_line) || start;
+          return 'read ' + String(innerArgs.path || 'unknown file') + ' ' + start + '-' + end + ' → running';
+        }
+        if (innerName === 'list_workspace_files') return 'list workspace files → running';
+        return innerName + ' → running';
+      }
       const path = args.path ? ' ' + args.path : '';
       if (name === 'search_workspace') return name + " '" + String(args.query || '').replace(/\s+/g, ' ') + "' → running";
       return name + path + ' → running';
@@ -2010,13 +2027,19 @@ export function buildAgentHtml(): string {
       } else if (message.type === 'tool_start') {
         let toolArgs = {};
         try { toolArgs = JSON.parse(message.argsPreview || '{}'); } catch (_) {}
-        if (message.name === 'search_workspace') {
-          state.readByAgent.push("search '" + (toolArgs.query || '') + "'");
+        let innerName = message.name;
+        let innerArgs = toolArgs;
+        if (message.name === 'call_tool') {
+          innerName = toolArgs.tool_name || toolArgs.name || toolArgs.tool || 'workspace tool';
+          innerArgs = toolArgs.arguments && typeof toolArgs.arguments === 'object' ? toolArgs.arguments : toolArgs;
+        }
+        if (innerName === 'search_workspace') {
+          state.readByAgent.push("search '" + (innerArgs.query || '') + "'");
           renderReadByAgent();
-        } else if (message.name === 'read_file') {
-          const start = toolArgs.start_line ? toolArgs.start_line : 1;
-          const end = toolArgs.end_line ? toolArgs.end_line : start;
-          state.readByAgent.push("read " + (toolArgs.path || 'unknown file') + ' ' + start + '–' + end);
+        } else if (innerName === 'read_file') {
+          const start = innerArgs.start_line ? innerArgs.start_line : 1;
+          const end = innerArgs.end_line ? innerArgs.end_line : start;
+          state.readByAgent.push("read " + (innerArgs.path || 'unknown file') + ' ' + start + '–' + end);
           renderReadByAgent();
         }
         updateActivity({

@@ -14,7 +14,7 @@ Voltix defers read-tool schemas (file listing, search, and reading) in TrueForge
 - **Cancellation:** Stop cancels the active TrueForge turn and verifies the workspace remains unchanged.
 - **MCP tools:** Voltix exposes guarded workspace read, edit, verification, command, and submit tools through a loopback MCP server.
 - **Approval-driven review:** `submit_changes` pauses the TrueForge turn until accepted hunks are applied or changes are rejected.
-- **Deferred tool loading:** Read-only discovery tools stay deferred while write, verification, command, and submit tools remain preloaded.
+- **Deferred tool loading:** `list_workspace_files`, `search_workspace`, and `read_file` stay deferred and are discovered through TrueForge meta-tools (`list_tools`, `get_tool_info`, `call_tool`); write, verification, command, and submit tools remain preloaded so edits and the verify loop do not stall.
 - **Context compaction:** Long sessions compact automatically after 70,000 estimated input tokens and report it in the Voltix activity log.
 
 [![VS Code extension](https://img.shields.io/badge/VS_Code-extension-007ACC?logo=visualstudiocode&logoColor=white)](https://code.visualstudio.com/)

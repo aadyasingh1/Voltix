@@ -31,6 +31,31 @@ export function formatToolSummary(name: string, argumentsText: string, result: s
   } catch {
     return `${name} → completed`;
   }
+  if (name === 'list_tools') {
+    return 'Discovered tools on voltix (deferred loading)';
+  }
+  if (name === 'get_tool_info') {
+    const toolName = safeSummaryValue(args.tool_name ?? args.name ?? args.tool ?? 'workspace tool');
+    return 'Loaded schema: ' + toolName;
+  }
+  if (name === 'call_tool') {
+    const innerName = safeSummaryValue(args.tool_name ?? args.name ?? args.tool ?? 'workspace tool');
+    const innerArgs = args.arguments && typeof args.arguments === 'object'
+      ? args.arguments as Record<string, unknown>
+      : args;
+    if (innerName === 'search_workspace') {
+      return "search '" + safeSummaryValue(innerArgs.query) + "'";
+    }
+    if (innerName === 'read_file') {
+      const start = Number(innerArgs.start_line) || 1;
+      const end = Number(innerArgs.end_line) || start;
+      return 'read ' + safeSummaryValue(innerArgs.path) + ' ' + start + '-' + end;
+    }
+    if (innerName === 'list_workspace_files') {
+      return 'list workspace files';
+    }
+    return innerName + ' ' + safeSummaryValue(innerArgs.path ?? innerArgs.query ?? innerArgs.command);
+  }
   if (name === 'read_file') {
     const file = safeSummaryValue(args.path);
     const range = result.match(/\[Showing lines (\d+)-(\d+) of (\d+)\./);
