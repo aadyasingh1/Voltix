@@ -1,11 +1,13 @@
 import * as vscode from 'vscode';
 import * as path from 'node:path';
 import { createSession } from '../agent/session';
-import { getModelChain } from '../config/settings';
+import { getModelChain, getSettings } from '../config/settings';
 import { guardWorkspacePath } from '../tools/pathGuard';
 import { PendingChanges } from '../review/pendingChanges';
 import { VoltixDiffProvider } from '../review/diffProvider';
 import { getLogger } from '../utils/logger';
+import { assembleContext } from '../context/retriever';
+import { resolveSymbol } from '../context/symbolResolver';
 
 /**
  * Inline Edit: the user selects code, presses the keybinding and types an instruction.
@@ -53,6 +55,12 @@ export async function runInlineEdit(provider: VoltixDiffProvider, onRemoved?: (c
     `Call edit_file with path "${rel}", old_string = the exact selected code above (or the exact part of it you change), new_string = the replacement, and a short reason.`,
     'Do not change anything outside the selection. Do not print code in chat. After proposing, reply with one short sentence.',
   ].join('\n');
+  const symbolContext = await assembleContext(instruction, workspaceRoot, getSettings().contextTokenBudget, resolveSymbol);
+  const pinnedContext = symbolContext.items
+    .filter(item => item.signals.includes('pinned_symbol'))
+    .map(item => `${item.path}:${item.startLine + 1}-${item.endLine + 1}\n${item.content}`)
+    .join('\n\n');
+  const enrichedPrompt = pinnedContext ? prompt + '\n\nPinned @symbol context:\n' + pinnedContext : prompt;
 
   const models = getModelChain();
   const errors: string[] = [];
@@ -75,7 +83,7 @@ export async function runInlineEdit(provider: VoltixDiffProvider, onRemoved?: (c
           let turnError: string | undefined;
           try {
             const stream = await client.sessions.createTurnStream(sessionId, {
-              input: [{ type: 'user.message', content: prompt }],
+              input: [{ type: 'user.message', content: enrichedPrompt }],
             });
             for await (const event of stream) {
               if (event.type === 'turn.done') {

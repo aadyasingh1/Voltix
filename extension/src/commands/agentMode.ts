@@ -10,6 +10,7 @@ import { buildPassport } from '../review/passport';
 import { currentRecord } from '../verify/verifier';
 import { runVerifyLoop } from '../verify/verifyLoop';
 import type { ChangePassport, PanelOutboundMessage } from '../../../shared/types';
+import { resolveSymbol } from '../context/symbolResolver';
 
 type Session = Awaited<ReturnType<typeof createSession>>;
 type Emit = (message: PanelOutboundMessage) => void;
@@ -40,7 +41,7 @@ export class AgentMode {
     this.cancelled = false;
     const emit: Emit = message => this.surface.post(message);
     const root = getWorkspaceRoot();
-    const context = await assembleContext(text, root, getSettings().contextTokenBudget);
+    const context = await assembleContext(text, root, getSettings().contextTokenBudget, resolveSymbol);
     if (this.cancelled) {
       this.lastStatus = 'cancelled';
       return;

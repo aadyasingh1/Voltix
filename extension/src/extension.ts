@@ -21,6 +21,8 @@ import { passportToMarkdown } from './review/passport';
 import { FuturesEngine } from './futures/futuresEngine';
 import { getSettings } from './config/settings';
 import { getWorkspaceRoot } from './tools/pathGuard';
+import { scanFiles } from './context/fileScanner';
+import { symbolKindName } from './context/symbolResolver';
 
 let mcpServer: import('node:http').Server | undefined;
 
@@ -186,7 +188,31 @@ export async function activate(context: vscode.ExtensionContext) {
   };
 
   const handleInbound = async (message: PanelInboundMessage, surface: AgentSurface) => {
-    if (message.type === 'submit') {
+    if (message.type === 'mention_query') {
+      const root = getWorkspaceRoot();
+      const query = message.query.trim();
+      const allFiles = await scanFiles(root);
+      const files = allFiles
+        .map(abs => path.relative(root, abs).replace(/\\/g, '/'))
+        .filter(file => !query || file.toLowerCase().includes(query.toLowerCase()))
+        .slice(0, 12);
+      let symbols: Array<{ name: string; kind: string; path: string; line: number }> = [];
+      if (query) {
+        try {
+          const matches = await vscode.commands.executeCommand<readonly vscode.SymbolInformation[]>(
+            'vscode.executeWorkspaceSymbolProvider',
+            query
+          ) as readonly vscode.SymbolInformation[] | undefined;
+          symbols = (matches || []).slice(0, 12).map(symbol => ({
+            name: symbol.name,
+            kind: symbolKindName(symbol.kind),
+            path: path.relative(root, symbol.location.uri.fsPath).replace(/\\/g, '/'),
+            line: symbol.location.range.start.line + 1,
+          }));
+        } catch (_) {}
+      }
+      surface.post({ type: 'mention_suggestions', query, files, symbols });
+    } else if (message.type === 'submit') {
       if (futures.busy || inlineRunning || agentRunning) {
         surface.post({ type: 'error', message: 'Wait for the current Voltix run to finish, or cancel it.', recoverable: true });
         return;

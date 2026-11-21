@@ -5,13 +5,65 @@ import { scanFiles } from './fileScanner';
 import { parseMentions } from './mentionParser';
 import { rankItems } from './ranker';
 
-export async function assembleContext(query: string, workspaceRoot: string, budget: number):
+export async function assembleContext(query: string, workspaceRoot: string, budget: number,
+  resolveSymbolMention?: (name: string, workspaceRoot: string) => Promise<{ name: string; kind: string; path: string; absPath: string; startLine: number; endLine: number } | undefined>):
   Promise<{ items: ContextItem[]; receipt: ContextReceipt }> {
   const mentions = parseMentions(query);
   const terms = mentions.map(item => item.term);
   const words = [...new Set(query.toLowerCase().split(/\W+/).filter(word => word.length > 2))];
   const paths = await scanFiles(workspaceRoot);
   const items: ContextItem[] = [];
+  const pinnedPaths = new Set<string>();
+  for (const mention of mentions.filter(item => item.signal === 'pinned_symbol')) {
+      let resolved: { name: string; kind: string; path: string; absPath: string; startLine: number; endLine: number } | undefined;
+      if (resolveSymbolMention) {
+        resolved = await resolveSymbolMention(mention.term, workspaceRoot);
+      }
+      if (!resolved) {
+        for (const absPath of paths) {
+          let text = '';
+          try { text = fs.readFileSync(absPath, 'utf8'); } catch { continue; }
+          const escaped = mention.term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const lines = text.split(/\r?\n/);
+          const index = lines.findIndex(line => new RegExp(`(?:def|class|function)\\s+${escaped}\\b`).test(line));
+          if (index >= 0) {
+            resolved = {
+              name: mention.term,
+              kind: 'symbol',
+              path: path.relative(workspaceRoot, absPath).replace(/\\/g, '/'),
+              absPath,
+              startLine: index,
+              endLine: index,
+            };
+            break;
+          }
+        }
+      }
+      if (!resolved) continue;
+      let content = '';
+      try { content = fs.readFileSync(resolved.absPath, 'utf8'); } catch { continue; }
+      const lines = content.split(/\r?\n/);
+      const startLine = Math.max(0, resolved.startLine - 10);
+      const endLine = Math.min(lines.length - 1, resolved.endLine + 10);
+      const excerpt = lines.slice(startLine, endLine + 1).join('\n');
+      const mergedFileMention = mentions.find(item => item.path &&
+        resolved.path.toLowerCase().endsWith(item.path.toLowerCase()));
+      const signals: ContextSignal[] = mergedFileMention
+        ? ['pinned_symbol', 'explicit_mention']
+        : ['pinned_symbol'];
+      items.push({
+        path: resolved.path,
+        absPath: resolved.absPath,
+        symbolName: resolved.name,
+        startLine,
+        endLine,
+        content: excerpt,
+        signals,
+        score: 100,
+        tokenEstimate: Math.ceil(excerpt.length / 4),
+      });
+      pinnedPaths.add(resolved.absPath);
+  }
   for (const absPath of paths) {
     if (!/\.(ts|tsx|js|jsx|mjs|cjs|py|pyi|json|md|rst|txt|toml|cfg|ini|yml|yaml|css|html)$/.test(absPath)) continue;
     let content = '';
@@ -20,6 +72,7 @@ export async function assembleContext(query: string, workspaceRoot: string, budg
     const rel = path.relative(workspaceRoot, absPath).replace(/\\/g, '/');
     const normalizedRel = rel.toLowerCase();
     const fileMention = mentions.find(item => item.path && normalizedRel.endsWith(item.path.toLowerCase()));
+    if (pinnedPaths.has(absPath)) continue;
     const symbolMentions = mentions.filter(item => !item.path && lower.includes(item.term.toLowerCase()));
     const contentMatches = words.filter(word => lower.includes(word));
     const pathMatches = words.filter(word => normalizedRel.includes(word));

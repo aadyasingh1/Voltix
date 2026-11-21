@@ -195,6 +195,13 @@ export function buildAgentHtml(): string {
     .brand-tagline{color:var(--vscode-descriptionForeground);font-size:12px}
     .platform-pill{flex:none;padding:2px 9px;border:1px solid var(--tf-border);border-radius:999px;color:var(--tf-muted);font-size:10.5px;white-space:nowrap}
     .task-box{border:1px solid var(--vx-line);border-radius:12px;background:var(--vscode-input-background);overflow:hidden;transition:border-color .12s}
+    .task-box{position:relative}
+    .mention-menu{position:absolute;z-index:4;left:8px;right:8px;bottom:46px;max-height:220px;overflow:auto;padding:4px;border:1px solid var(--vx-line);border-radius:8px;background:var(--vscode-editor-background)}
+    .mention-option{display:flex;align-items:flex-start;gap:8px;width:100%;min-width:0;padding:6px 8px;text-align:left;border:none;border-radius:6px;background:transparent}
+    .mention-option:hover,.mention-option:focus{background:var(--vx-raised)}
+    .mention-option>*{min-width:0}
+    .mention-name{font-size:12px;font-weight:600;overflow-wrap:anywhere}
+    .mention-meta{display:block;color:var(--vscode-descriptionForeground);font-size:11px;overflow-wrap:anywhere}
     .task-box:focus-within{border-color:var(--vx-violet)}
     .task-box textarea{min-height:96px;margin:0;padding:12px 14px 6px;border:none;border-radius:0;background:transparent;resize:vertical}
     .task-box textarea:focus,.task-box textarea:focus-visible{border:none;outline:none}
@@ -346,6 +353,7 @@ export function buildAgentHtml(): string {
     <div class="task-box">
       <label for="input" class="sr-only">Describe a task</label>
       <textarea id="input" placeholder="Ask for a change. @file to pin context. Enter to send, Shift+Enter for a new line." rows="4"></textarea>
+      <div id="mention-menu" class="mention-menu" role="listbox" hidden></div>
       <div class="task-footer">
         <div class="chips">
           <button id="explore" class="chip" type="button" aria-expanded="false" aria-controls="probe-row">Explore futures</button>
@@ -448,6 +456,7 @@ export function buildAgentHtml(): string {
       activeResponseIndex: -1
     };
     const input = document.getElementById('input');
+    const mentionMenu = document.getElementById('mention-menu');
     const conversation = document.getElementById('conversation');
     const fileList = document.getElementById('file-list');
     const reviewDetail = document.getElementById('review-detail');
@@ -1488,7 +1497,14 @@ export function buildAgentHtml(): string {
       }
       clear(contextFiles);
       if (items.length) {
-        items.forEach(item => contextFiles.appendChild(makeElement('span', 'context-file', item.path || 'Unknown file')));
+        items.forEach(item => {
+          const pinned = Array.isArray(item.signals) && item.signals.includes('pinned_symbol');
+          const label = pinned
+            ? (item.symbolName || 'Symbol') + ' (pinned @symbol) · ' + (item.path || 'Unknown file') + ':' +
+              (Number(item.startLine || 0) + 1) + '–' + (Number(item.endLine || 0) + 1)
+            : (item.path || 'Unknown file');
+          contextFiles.appendChild(makeElement('span', 'context-file', label));
+        });
       } else {
         contextFiles.appendChild(makeElement('span', 'context-file', 'No selected files'));
       }
@@ -1647,6 +1663,56 @@ export function buildAgentHtml(): string {
         if (!state.busy) document.getElementById('prompt-form').requestSubmit();
       }
     });
+    input.addEventListener('input', () => {
+      const cursor = input.selectionStart;
+      const before = input.value.slice(0, cursor);
+      const match = before.match(/(?:^|\s)@([^\s]*)$/);
+      if (!match) {
+        mentionMenu.hidden = true;
+        return;
+      }
+      vscode.postMessage({ type: 'mention_query', query: match[1] });
+    });
+
+    function insertMention(token) {
+      const cursor = input.selectionStart;
+      const before = input.value.slice(0, cursor);
+      const match = before.match(/(?:^|\s)@([^\s]*)$/);
+      if (!match) return;
+      const start = cursor - match[1].length - 1;
+      input.value = input.value.slice(0, start) + token + input.value.slice(cursor);
+      const next = start + token.length;
+      input.setSelectionRange(next, next);
+      mentionMenu.hidden = true;
+      input.focus();
+    }
+
+    function renderMentionSuggestions(message) {
+      clear(mentionMenu);
+      const symbols = Array.isArray(message.symbols) ? message.symbols : [];
+      const files = Array.isArray(message.files) ? message.files : [];
+      if (!symbols.length && !files.length) {
+        mentionMenu.hidden = true;
+        return;
+      }
+      symbols.forEach(symbol => {
+        const option = makeElement('button', 'mention-option');
+        option.type = 'button';
+        option.appendChild(makeElement('span', 'mention-name', '@symbol:' + symbol.name));
+        option.appendChild(makeElement('span', 'mention-meta', 'symbol · ' + symbol.kind + ' · ' + symbol.path + ':' + symbol.line));
+        option.addEventListener('click', () => insertMention('@symbol:' + symbol.name));
+        mentionMenu.appendChild(option);
+      });
+      files.forEach(file => {
+        const option = makeElement('button', 'mention-option');
+        option.type = 'button';
+        option.appendChild(makeElement('span', 'mention-name', '@file:' + file));
+        option.appendChild(makeElement('span', 'mention-meta', 'file · ' + file));
+        option.addEventListener('click', () => insertMention('@file:' + file));
+        mentionMenu.appendChild(option);
+      });
+      mentionMenu.hidden = false;
+    }
 
     exploreButton.addEventListener('click', () => setFuturesMode(probeRow.hidden));
     exploreBackButton.addEventListener('click', () => setFuturesMode(false));
@@ -1847,7 +1913,9 @@ export function buildAgentHtml(): string {
         return;
       }
       trackRun(message);
-      if (message.type === 'approval_required') {
+      if (message.type === 'mention_suggestions') {
+        renderMentionSuggestions(message);
+      } else if (message.type === 'approval_required') {
         state.pendingApproval = { toolCallId: message.toolCallId, summary: message.summary };
         approvalBanner.hidden = false;
         approvalBanner.textContent = 'TrueForge is waiting for your review';

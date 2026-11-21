@@ -1,8 +1,9 @@
-export type ContextSignal = 'explicit_mention' | 'symbol_match' | 'keyword_match' | 'filename_match' | 'import_relationship' | 'recency';
+export type ContextSignal = 'explicit_mention' | 'symbol_match' | 'pinned_symbol' | 'keyword_match' | 'filename_match' | 'import_relationship' | 'recency';
 
 export interface ContextItem {
   path: string;
   absPath: string;
+  symbolName?: string;
   startLine: number;
   endLine: number;
   content: string;
@@ -179,6 +180,7 @@ export type PanelOutboundMessage =
   | { type: 'recent_runs'; runs: string[] }
   | { type: 'approval_required'; toolCallId: string; threadId: string; turnId: string; summary: string }
   | { type: 'approval_decision'; toolCallId: string; decision: 'allow' | 'deny'; reason?: string }
+  | { type: 'mention_suggestions'; query: string; files: string[]; symbols: Array<{ name: string; kind: string; path: string; line: number }> }
   | { type: 'focus_section'; section: 'futures' }
   | { type: 'replay_boundary'; phase: 'start' | 'end' }
   | {
@@ -203,6 +205,7 @@ export type PanelInboundMessage =
   | { type: 'discard_all' }
   | { type: 'approval_allow'; toolCallId: string }
   | { type: 'approval_deny'; toolCallId: string }
+  | { type: 'mention_query'; query: string }
   | { type: 'copy_passport' }
   | { type: 'panel_ready' }
   | { type: 'explore_futures'; text: string; probeCommand?: string }
