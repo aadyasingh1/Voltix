@@ -28,12 +28,14 @@
       { "command": "voltix.rejectInlineEdit", "title": "Voltix: Reject Inline Edit" },
       { "command": "voltix.acceptInlineEdit", "title": "Voltix: Accept Inline Edit" },
       { "command": "voltix.discardAll", "title": "Voltix: Discard All Changes" },
-      { "command": "voltix.undoLastApply", "title": "Voltix: Undo Last Apply" }
+      { "command": "voltix.undoLastApply", "title": "Voltix: Undo Last Apply" },
+      { "command": "voltix.cancelInlineEdit", "title": "Voltix: Cancel Inline Edit" }
     ],
     "keybindings": [
       { "command": "voltix.openPanel", "key": "ctrl+shift+a", "mac": "cmd+shift+a" },
       { "command": "voltix.inlineEdit", "key": "ctrl+alt+e", "mac": "ctrl+cmd+e", "when": "editorTextFocus" },
-      { "command": "voltix.undoLastApply", "key": "ctrl+alt+z", "mac": "ctrl+cmd+z" }
+      { "command": "voltix.undoLastApply", "key": "ctrl+alt+z", "mac": "ctrl+cmd+z" },
+      { "command": "voltix.cancelInlineEdit", "key": "escape", "when": "voltix.inlineSessionActive" }
     ],
     "configuration": {
       "title": "Voltix",

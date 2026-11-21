@@ -14,7 +14,7 @@ export function parseHunks(original: string, proposed: string, changeId: string)
   const originalNormalized = normalizeLineEndings(original).normalized;
   const proposedNormalized = normalizeLineEndings(proposed).normalized;
   if (originalNormalized === proposedNormalized) return [];
-  const patch = createTwoFilesPatch('a', 'b', originalNormalized, proposedNormalized, '', '', { context: 3 });
+  const patch = createTwoFilesPatch('a', 'b', originalNormalized, proposedNormalized, '', '', { context: 0 });
   const parsed = parsePatch(patch);
   if (!parsed.length || !parsed[0].hunks) return [];
   return parsed[0].hunks.map((parsedHunk, index) => ({

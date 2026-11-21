@@ -13,6 +13,10 @@ export interface AppliedFile {
 
 const history: AppliedFile[][] = [];
 
+export function recordInlineAppliedFile(input: AppliedFile): void {
+  history.push([input]);
+}
+
 /** Applies accepted changes, records what was written so it can be undone, and clears applied proposals. */
 export function applyAndRecord(changes: PendingChange[]) {
   const result = applyAccepted(changes);

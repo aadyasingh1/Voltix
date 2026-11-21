@@ -1,11 +1,21 @@
 import { applyPatch } from 'diff';
-import type { PendingChange } from '../../../shared/types';
+import type { Hunk, PendingChange } from '../../../shared/types';
 import { normalizeLineEndings, restoreLineEndings } from './hunkParser';
 
 export function buildPatch(change: PendingChange): string {
   const original = normalizeLineEndings(change.originalContent).normalized;
   const proposed = normalizeLineEndings(change.proposedContent).normalized;
   return require('diff').createTwoFilesPatch('a', 'b', original, proposed, '', '', { context: 3 });
+}
+
+export function applyHunkToText(content: string, hunk: Hunk, appliedLineDelta = 0): string {
+  const info = normalizeLineEndings(content);
+  const lines = info.normalized.split('\n');
+  const start = Math.max(0, hunk.originalStart - 1 + appliedLineDelta);
+  const removeCount = hunk.lines.filter(line => line.type === 'remove').length;
+  const replacements = hunk.lines.filter(line => line.type === 'add').map(line => line.content);
+  lines.splice(start, removeCount, ...replacements);
+  return restoreLineEndings(lines.join('\n'), info.wasCRLF);
 }
 
 export function applySelectedHunks(change: PendingChange):

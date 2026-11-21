@@ -8,6 +8,7 @@ import { VoltixDiffProvider } from '../review/diffProvider';
 import { getLogger } from '../utils/logger';
 import { assembleContext } from '../context/retriever';
 import { resolveSymbol } from '../context/symbolResolver';
+import { startInlineHunkSession, setInlineGenerationCancel } from '../review/inlineHunkSession';
 
 /**
  * Inline Edit: the user selects code, presses the keybinding and types an instruction.
@@ -15,7 +16,7 @@ import { resolveSymbol } from '../context/symbolResolver';
  * (edit_file / propose_file_change), so nothing is written to disk until the user accepts.
  * If the configured model fails, the next model in voltix.fallbackModels is used automatically.
  */
-export async function runInlineEdit(provider: VoltixDiffProvider, onRemoved?: (changeId: string) => void) {
+export async function runInlineEdit(provider: VoltixDiffProvider, onRemoved?: (changeId: string) => void, refresh?: () => void) {
   const drop = (changeId: string) => {
     PendingChanges.remove(changeId);
     onRemoved?.(changeId);
@@ -66,6 +67,13 @@ export async function runInlineEdit(provider: VoltixDiffProvider, onRemoved?: (c
   const errors: string[] = [];
   let change: ReturnType<typeof PendingChanges.get>;
   let cancelled = false;
+  void vscode.commands.executeCommand('setContext', 'voltix.inlineSessionActive', true);
+  const generationStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+  generationStatus.text = 'Voltix is editing…';
+  generationStatus.show();
+  setInlineGenerationCancel(() => {
+    cancelled = true;
+  });
 
   await vscode.window.withProgress(
     { location: vscode.ProgressLocation.Notification, title: `Voltix: inline edit for ${rel}`, cancellable: true },
@@ -77,6 +85,10 @@ export async function runInlineEdit(provider: VoltixDiffProvider, onRemoved?: (c
         try {
           const { client, sessionId } = await createSession(model);
           const sub = token.onCancellationRequested(() => {
+            cancelled = true;
+            void client.sessions.cancel(sessionId, {}).catch(() => undefined);
+          });
+          setInlineGenerationCancel(() => {
             cancelled = true;
             void client.sessions.cancel(sessionId, {}).catch(() => undefined);
           });
@@ -116,6 +128,8 @@ export async function runInlineEdit(provider: VoltixDiffProvider, onRemoved?: (c
       }
     }
   );
+  generationStatus.dispose();
+  setInlineGenerationCancel(undefined);
 
   if (cancelled) {
     if (change) drop(change.id);
@@ -137,8 +151,6 @@ export async function runInlineEdit(provider: VoltixDiffProvider, onRemoved?: (c
   // Original (left) vs proposed (right). The real file stays untouched until hunk/file review is complete.
   const right = provider.set(change.id, change.proposedContent, path.extname(change.path) || '.txt', change.id);
   await vscode.commands.executeCommand('vscode.diff', editor.document.uri, right, `Voltix Inline Edit: ${rel} (${change.hunks.length} hunk${change.hunks.length === 1 ? '' : 's'})`);
-  await vscode.commands.executeCommand('voltix.openInEditor');
-  void vscode.window.showInformationMessage(
-    `Voltix: inline edit proposal ready for hunk review in ${rel}. No files were modified.`
-  );
+  startInlineHunkSession(change, editor, provider, onRemoved, undefined, refresh);
+  void vscode.window.showInformationMessage(`Voltix: inline edit ready for hunk review in ${rel}. No files were modified.`);
 }

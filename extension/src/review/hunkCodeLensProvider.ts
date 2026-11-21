@@ -36,12 +36,12 @@ export class HunkCodeLensProvider implements vscode.CodeLensProvider {
       command: 'voltix.codeLensInfo',
     }));
     lenses.push(new vscode.CodeLens(firstLine, {
-      title: '✓ Accept all in file',
+      title: 'Accept all',
       command: 'voltix.acceptFile',
       arguments: [change.id],
     }));
     lenses.push(new vscode.CodeLens(firstLine, {
-      title: '✗ Reject all in file',
+      title: 'Reject all',
       command: 'voltix.rejectFile',
       arguments: [change.id],
     }));
@@ -52,12 +52,12 @@ export class HunkCodeLensProvider implements vscode.CodeLensProvider {
       const removed = hunk.lines.filter(item => item.type === 'remove').length;
       const location = added > 0 && removed === 0 ? 'insert' : 'change';
       lenses.push(new vscode.CodeLens(range, {
-        title: `✓ Accept hunk ${index + 1}`,
+        title: `Accept hunk ${index + 1}`,
         command: 'voltix.acceptHunk',
         arguments: [change.id, hunk.id],
       }));
       lenses.push(new vscode.CodeLens(range, {
-        title: `✗ Reject hunk ${index + 1}`,
+        title: `Reject hunk ${index + 1}`,
         command: 'voltix.rejectHunk',
         arguments: [change.id, hunk.id],
       }));

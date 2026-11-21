@@ -23,6 +23,7 @@ import { getSettings } from './config/settings';
 import { getWorkspaceRoot } from './tools/pathGuard';
 import { scanFiles } from './context/fileScanner';
 import { symbolKindName } from './context/symbolResolver';
+import { acceptInlineHunk, rejectInlineHunk, acceptAllInlineHunks, rejectAllInlineHunks, cancelInlineHunkSession, getInlineSession } from './review/inlineHunkSession';
 
 let mcpServer: import('node:http').Server | undefined;
 
@@ -234,6 +235,7 @@ export async function activate(context: vscode.ExtensionContext) {
       }
     } else if (message.type === 'cancel') {
       stopPressedAt = Number.isFinite(message.requestedAt) ? message.requestedAt : Date.now();
+      cancelInlineHunkSession();
       try {
         if (futures.busy) await futures.cancel();
         else await agentMode.cancel();
@@ -368,19 +370,36 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('voltix.openInEditor', () => openInEditor()),
     vscode.commands.registerCommand('voltix.undoLastApply', undo),
     vscode.commands.registerCommand('voltix.codeLensInfo', () => undefined),
+    vscode.commands.registerCommand('voltix.cancelInlineEdit', () => cancelInlineHunkSession()),
     vscode.commands.registerCommand('voltix.acceptHunk', (changeId: string, hunkId: string) => {
+      if (getInlineSession(changeId)) {
+        void acceptInlineHunk(changeId, hunkId);
+        return;
+      }
       PendingChanges.acceptHunk(changeId, hunkId);
       syncDecision(changeId);
     }),
     vscode.commands.registerCommand('voltix.rejectHunk', (changeId: string, hunkId: string) => {
+      if (getInlineSession(changeId)) {
+        void rejectInlineHunk(changeId, hunkId);
+        return;
+      }
       PendingChanges.rejectHunk(changeId, hunkId);
       syncDecision(changeId);
     }),
     vscode.commands.registerCommand('voltix.acceptFile', (changeId: string) => {
+      if (getInlineSession(changeId)) {
+        void acceptAllInlineHunks(changeId);
+        return;
+      }
       PendingChanges.acceptFile(changeId);
       syncDecision(changeId);
     }),
     vscode.commands.registerCommand('voltix.rejectFile', (changeId: string) => {
+      if (getInlineSession(changeId)) {
+        void rejectAllInlineHunks(changeId);
+        return;
+      }
       PendingChanges.rejectFile(changeId);
       syncDecision(changeId);
     }),
@@ -395,7 +414,7 @@ export async function activate(context: vscode.ExtensionContext) {
         await runInlineEdit(diffProvider, changeId => {
           hub.post({ type: 'change_removed', changeId });
           hunkCodeLens.refresh();
-        });
+        }, () => hunkCodeLens.refresh());
       } finally {
         inlineRunning = false;
       }
@@ -404,15 +423,21 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('voltix.acceptInlineEdit', () => {
       const active = PendingChanges.getAll().at(-1);
       if (active) {
-        PendingChanges.acceptFile(active.id);
-        syncDecision(active.id);
+        if (getInlineSession(active.id)) void acceptAllInlineHunks(active.id);
+        else {
+          PendingChanges.acceptFile(active.id);
+          syncDecision(active.id);
+        }
       }
     }),
     vscode.commands.registerCommand('voltix.rejectInlineEdit', () => {
       const active = PendingChanges.getAll().at(-1);
       if (active) {
-        PendingChanges.rejectFile(active.id);
-        syncDecision(active.id);
+        if (getInlineSession(active.id)) void rejectAllInlineHunks(active.id);
+        else {
+          PendingChanges.rejectFile(active.id);
+          syncDecision(active.id);
+        }
       }
     }),
     vscode.commands.registerCommand('voltix.discardAll', discardReview)

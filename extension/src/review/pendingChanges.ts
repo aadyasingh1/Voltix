@@ -60,6 +60,12 @@ export class PendingChangeStore {
     }
   }
 
+  removeHunk(changeId: string, hunkId: string): void {
+    const change = this.changes.get(changeId);
+    if (!change) return;
+    change.hunks = change.hunks.filter(hunk => hunk.id !== hunkId);
+  }
+
   acceptFile(changeId: string): void {
     const change = this.changes.get(changeId);
     if (change) {
