@@ -32,6 +32,7 @@ export function buildAgentHtml(): string {
     #status{min-height:20px;margin:8px 0;color:var(--tf-muted);font-size:12px}
     .error-banner,.result-banner{margin:10px 0;padding:10px 12px;border:1px solid var(--tf-border);border-left:3px solid var(--vscode-testing-iconPassed,#3fb950);border-radius:var(--tf-radius);background:var(--tf-card)}
     .error-banner{border-left-color:var(--vscode-errorForeground)}
+    .safety-proof{border-left-color:var(--tf-accent)}
     .result-banner.success{border-left-color:var(--vscode-testing-iconPassed,#3fb950)}
     .result-banner.failure{border-left-color:var(--vscode-errorForeground)}
     .banner-heading{font-weight:600;margin-bottom:4px}
@@ -336,6 +337,7 @@ export function buildAgentHtml(): string {
   <div id="status" role="status" aria-live="polite"></div>
   <div id="error-area" aria-live="assertive"></div>
   <div id="result-area" aria-live="polite"></div>
+  <div id="safety-proof-area" aria-live="polite"></div>
   <div id="futures-area"></div>
   <div class="dash-grid">
     <section id="model-card" class="mini-card" aria-label="Model">
@@ -401,7 +403,8 @@ export function buildAgentHtml(): string {
       lastSubmittedText: '',
       modelChain: [],
       activeModel: '',
-      sessionId: ''
+      sessionId: '',
+      safetyProofs: []
     };
     const input = document.getElementById('input');
     const output = document.getElementById('output');
@@ -411,6 +414,7 @@ export function buildAgentHtml(): string {
     const status = document.getElementById('status');
     const errorArea = document.getElementById('error-area');
     const resultArea = document.getElementById('result-area');
+    const safetyProofArea = document.getElementById('safety-proof-area');
     const receiptBody = document.getElementById('receipt-body');
     const receiptCount = document.getElementById('receipt-count');
     const activityList = document.getElementById('activity-list');
@@ -1414,6 +1418,30 @@ export function buildAgentHtml(): string {
       errorArea.appendChild(banner);
     }
 
+    function renderSafetyProof(message) {
+      state.safetyProofs.push(message);
+      clear(safetyProofArea);
+      state.safetyProofs.forEach(proof => {
+        const card = makeElement('div', 'result-banner safety-proof');
+        const gitState = proof.error ? 'unavailable' : proof.clean ? 'clean' : 'not clean';
+        let heading = '';
+        if (proof.kind === 'stopped') {
+          heading = proof.elapsedMs === undefined
+            ? proof.cancelConfirmed === false ? 'Stop requested; cancellation not confirmed · ' : 'Stopped · '
+            : 'Stopped ' + proof.elapsedMs + ' ms after you pressed Stop · ';
+          heading += 'pending proposals dropped · nothing written to disk · git status: ' + gitState;
+        } else if (proof.kind === 'failed') {
+          heading = 'Failed turn · pending proposals dropped · nothing written to disk · git status: ' + gitState;
+        } else {
+          heading = 'Discarded pending proposals · nothing written to disk · git status: ' + gitState;
+        }
+        card.appendChild(makeElement('div', 'banner-heading', heading));
+        if (proof.files && proof.files.length) appendPathList(card, 'Files reported by git status --porcelain', proof.files);
+        if (proof.error) card.appendChild(makeElement('p', 'decision-note', 'Could not read git status: ' + proof.error));
+        safetyProofArea.appendChild(card);
+      });
+    }
+
     function showApplyResult(result) {
       const applied = Array.isArray(result.applied) ? result.applied : [];
       const restored = Array.isArray(result.restored) ? result.restored : [];
@@ -1495,7 +1523,7 @@ export function buildAgentHtml(): string {
     cancelButton.addEventListener('click', () => {
       if (!state.busy) return;
       status.textContent = 'Cancellation requested; waiting for the agent response.';
-      vscode.postMessage({ type: 'cancel' });
+      vscode.postMessage({ type: 'cancel', requestedAt: Date.now() });
     });
 
     applyButton.addEventListener('click', () => {
@@ -1775,6 +1803,8 @@ export function buildAgentHtml(): string {
       } else if (message.type === 'session_state') {
         state.sessionId = message.sessionId || '';
         openSessionButton.disabled = !state.sessionId;
+      } else if (message.type === 'safety_proof') {
+        renderSafetyProof(message);
       } else if (message.type === 'verification') {
         const last = state.verifyEvents[state.verifyEvents.length - 1];
         if (last && last.phase === 'running' && message.phase !== 'fixing') state.verifyEvents.pop();

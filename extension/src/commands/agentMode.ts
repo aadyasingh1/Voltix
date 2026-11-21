@@ -22,6 +22,7 @@ export class AgentMode {
   private cancelled = false;
   private cancelRetry: (() => void) | undefined;
   lastPassport: ChangePassport | null = null;
+  lastStatus: 'done' | 'cancelled' | 'error' | undefined;
 
   constructor(private readonly surface: AgentSurface) {}
 
@@ -34,11 +35,16 @@ export class AgentMode {
   }
 
   async submit(text: string) {
+    this.lastStatus = undefined;
+    this.cancelled = false;
     const emit: Emit = message => this.surface.post(message);
     const root = getWorkspaceRoot();
     const context = await assembleContext(text, root, getSettings().contextTokenBudget);
+    if (this.cancelled) {
+      this.lastStatus = 'cancelled';
+      return;
+    }
     const enriched = `${text}\n\nSelected workspace context:\n${context.items.map(item => `${item.path}\n${item.content}`).join('\n\n')}`;
-    this.cancelled = false;
 
     // Primary model first; on failure, automatically fall back to the next configured model.
     const models = getModelChain();
@@ -49,6 +55,10 @@ export class AgentMode {
     for (let index = 0; index < chain.length; index++) {
       const model = chain[index];
       const isLast = index === chain.length - 1;
+      if (this.cancelled) {
+        this.lastStatus = 'cancelled';
+        return;
+      }
       emit({ type: 'model_chain', models: getModelChain(), active: model });
       emit({ type: 'model_info', model, fallbackFrom: index > 0 ? chain[index - 1] : undefined });
       for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
@@ -60,29 +70,49 @@ export class AgentMode {
             this.sessionModel = model;
             emit({ type: 'session_state', sessionId: this.sessionId });
           }
+          if (this.cancelled) {
+            this.lastStatus = 'cancelled';
+            return;
+          }
           const result = await processTurn(this.client, this.sessionId!, enriched, emit, () => {
             emit({ type: 'context_receipt', receipt: context.receipt });
           }, { deferErrors: true });
           if (result.status === 'done') {
             await this.afterTurn(emit, model);
+            this.lastStatus = this.cancelled ? 'cancelled' : 'done';
             return;
           }
-          if (result.status === 'cancelled') return;
+          if (result.status === 'cancelled') {
+            this.lastStatus = 'cancelled';
+            return;
+          }
           lastError = result.message || 'The model returned an error';
         } catch (error) {
           lastError = error instanceof Error ? error.message : String(error);
         }
-        if (this.cancelled) return;
+        if (this.cancelled) {
+          this.lastStatus = 'cancelled';
+          return;
+        }
         if (attempt < RETRY_DELAYS_MS.length) {
           const delay = RETRY_DELAYS_MS[attempt];
           const retryNumber = attempt + 1;
           emit({ type: 'text_delta', content: `Retry ${retryNumber} of 2 after ${delay / 1000}s\n` });
-          if (!await this.waitForRetry(delay)) return;
+          if (!await this.waitForRetry(delay)) {
+            this.lastStatus = 'cancelled';
+            return;
+          }
           continue;
         }
       }
-      if (this.cancelled) return;
-      if (isLast) throw new Error(`Model "${model}" failed after 2 retries: ${lastError}`);
+      if (this.cancelled) {
+        this.lastStatus = 'cancelled';
+        return;
+      }
+      if (isLast) {
+        this.lastStatus = 'error';
+        throw new Error(`Model "${model}" failed after 2 retries: ${lastError}`);
+      }
       this.client = undefined;
       this.sessionId = undefined;
       emit({ type: 'session_state' });

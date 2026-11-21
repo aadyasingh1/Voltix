@@ -149,6 +149,7 @@ export type PanelOutboundMessage =
   | { type: 'model_chain'; models: string[]; active: string }
   | { type: 'connection_status'; connected: boolean; baseUrl: string; error?: string }
   | { type: 'session_state'; sessionId?: string }
+  | { type: 'safety_proof'; kind: 'stopped' | 'failed' | 'discarded'; elapsedMs?: number; cancelConfirmed?: boolean; clean: boolean; files: string[]; error?: string }
   | {
       type: 'verification';
       phase: VerifyPhase;
@@ -188,7 +189,7 @@ export type PanelOutboundMessage =
 
 export type PanelInboundMessage =
   | { type: 'submit'; text: string }
-  | { type: 'cancel' }
+  | { type: 'cancel'; requestedAt?: number }
   | { type: 'accept_file'; changeId: string }
   | { type: 'reject_file'; changeId: string }
   | { type: 'accept_hunk'; changeId: string; hunkId: string }

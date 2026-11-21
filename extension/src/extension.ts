@@ -1,4 +1,5 @@
 import * as path from 'node:path';
+import { execFile } from 'node:child_process';
 import * as vscode from 'vscode';
 import type { FutureId, PanelInboundMessage } from '../../shared/types';
 import { getLogger } from './utils/logger';
@@ -19,6 +20,7 @@ import { formatForAgent, resetVerification, verifyPending } from './verify/verif
 import { passportToMarkdown } from './review/passport';
 import { FuturesEngine } from './futures/futuresEngine';
 import { getSettings } from './config/settings';
+import { getWorkspaceRoot } from './tools/pathGuard';
 
 let mcpServer: import('node:http').Server | undefined;
 
@@ -35,6 +37,9 @@ export async function activate(context: vscode.ExtensionContext) {
 
   const hub = new SurfaceHub();
   const agentMode = new AgentMode(hub);
+  let stopPressedAt: number | undefined;
+  let proofInFlight = false;
+  let finishSafetyProof: (kind: 'stopped' | 'failed' | 'discarded', cancelConfirmed?: boolean) => Promise<void> = async () => undefined;
   const checkConnection = async (target: AgentSurface = hub) => {
     const baseUrl = getSettings().baseUrl.replace(/\/+$/, '');
     const controller = new AbortController();
@@ -65,12 +70,57 @@ export async function activate(context: vscode.ExtensionContext) {
   let agentRunning = false;
   let inlineRunning = false;
   const futures = new FuturesEngine(
-    message => hub.post(message),
+    message => {
+      hub.post(message);
+      if (message.type === 'turn_done' && message.status === 'cancelled' && stopPressedAt !== undefined) {
+        void finishSafetyProof('stopped');
+      }
+    },
     passport => { agentMode.lastPassport = passport; }
   );
   const errorText = (error: unknown, fallback: string) => error instanceof Error ? error.message : fallback;
   const postHistory = (target: AgentSurface = hub) =>
     target.post({ type: 'history_state', canUndo: canUndo(), files: lastAppliedFiles() });
+
+  finishSafetyProof = async (kind, cancelConfirmed = true) => {
+    if (proofInFlight) return;
+    proofInFlight = true;
+    const elapsedMs = kind === 'stopped' && cancelConfirmed && stopPressedAt !== undefined
+      ? Math.max(0, Date.now() - stopPressedAt)
+      : undefined;
+    stopPressedAt = undefined;
+    PendingChanges.clear();
+    resetVerification();
+    agentMode.lastPassport = null;
+    hub.post({ type: 'review_reset' });
+    postHistory();
+    try {
+      const cwd = getWorkspaceRoot();
+      const output = await new Promise<string>((resolve, reject) => {
+        execFile('git', ['status', '--porcelain'], { cwd, encoding: 'utf8' }, (error, stdout, stderr) => {
+          if (error) {
+            reject(new Error(stderr.trim() || error.message));
+            return;
+          }
+          resolve(stdout);
+        });
+      });
+      const files = output.split(/\r?\n/).filter(Boolean).map(line => line.slice(3));
+      hub.post({ type: 'safety_proof', kind, elapsedMs, cancelConfirmed, clean: files.length === 0, files });
+    } catch (error) {
+      hub.post({
+        type: 'safety_proof',
+        kind,
+        elapsedMs,
+        cancelConfirmed,
+        clean: false,
+        files: [],
+        error: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      proofInFlight = false;
+    }
+  };
 
   const discardReview = async () => {
     await futures.discard();
@@ -80,6 +130,7 @@ export async function activate(context: vscode.ExtensionContext) {
     agentMode.lastPassport = null;
     hub.beginRun();
     hub.post({ type: 'review_reset' });
+    await finishSafetyProof('discarded');
   };
 
   const openDiff = async (changeId: string, futureId?: FutureId) => {
@@ -130,17 +181,24 @@ export async function activate(context: vscode.ExtensionContext) {
       agentRunning = true;
       hub.beginRun();
       hub.post({ type: 'run_started', mode: 'agent' });
-      try { await agentMode.submit(message.text); } catch (error) {
+      try {
+        await agentMode.submit(message.text);
+        if (agentMode.lastStatus === 'cancelled' && stopPressedAt !== undefined) await finishSafetyProof('stopped');
+      } catch (error) {
         hub.post({ type: 'error', message: errorText(error, 'Request failed'), recoverable: true });
+        if (stopPressedAt !== undefined) await finishSafetyProof('stopped', false);
+        else await finishSafetyProof('failed');
       } finally {
         agentRunning = false;
       }
     } else if (message.type === 'cancel') {
+      stopPressedAt = Number.isFinite(message.requestedAt) ? message.requestedAt : Date.now();
       try {
         if (futures.busy) await futures.cancel();
         else await agentMode.cancel();
       } catch (error) {
         hub.post({ type: 'error', message: errorText(error, 'Cancellation failed'), recoverable: true });
+        await finishSafetyProof('stopped', false);
       }
     } else if (message.type === 'panel_ready') {
       surface.post({ type: 'futures_config', probeCommand: getSettings().futuresProbeCommand });
