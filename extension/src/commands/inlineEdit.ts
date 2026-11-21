@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'node:path';
 import { createSession } from '../agent/session';
 import { getModelChain } from '../config/settings';
 import { guardWorkspacePath } from '../tools/pathGuard';
@@ -124,7 +125,7 @@ export async function runInlineEdit(provider: VoltixDiffProvider, onRemoved?: (c
   }
 
   // Original (left) vs proposed (right). The real file is untouched until the user accepts.
-  const right = provider.set(change.id, change.proposedContent);
+  const right = provider.set(change.id, change.proposedContent, path.extname(change.path) || '.txt', change.id);
   await vscode.commands.executeCommand('vscode.diff', editor.document.uri, right, `Voltix Inline Edit: ${rel} (${change.hunks.length} hunk${change.hunks.length === 1 ? '' : 's'})`);
 
   const choice = await vscode.window.showInformationMessage(

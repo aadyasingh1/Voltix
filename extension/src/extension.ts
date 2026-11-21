@@ -8,6 +8,7 @@ import { SurfaceHub, type AgentSurface } from './ui/surfaceHub';
 import { AgentMode } from './commands/agentMode';
 import { runInlineEdit } from './commands/inlineEdit';
 import { VoltixDiffProvider } from './review/diffProvider';
+import { HunkCodeLensProvider } from './review/hunkCodeLensProvider';
 import { PendingChanges } from './review/pendingChanges';
 import { getActiveStore, getToolPolicy } from './review/activeStore';
 import { applyAndRecord, undoLastApply, canUndo, lastAppliedFiles } from './review/undoStack';
@@ -25,8 +26,11 @@ export async function activate(context: vscode.ExtensionContext) {
   const logger = getLogger();
   logger.appendLine('Voltix activated');
   const diffProvider = new VoltixDiffProvider();
+  const hunkCodeLens = new HunkCodeLensProvider(diffProvider, id => PendingChanges.get(id));
   context.subscriptions.push(
-    vscode.workspace.registerTextDocumentContentProvider('voltix', diffProvider)
+    vscode.workspace.registerTextDocumentContentProvider('voltix', diffProvider),
+    vscode.languages.registerCodeLensProvider({ scheme: 'voltix' }, hunkCodeLens),
+    hunkCodeLens
   );
 
   const hub = new SurfaceHub();
@@ -71,6 +75,7 @@ export async function activate(context: vscode.ExtensionContext) {
   const discardReview = async () => {
     await futures.discard();
     PendingChanges.clear();
+    hunkCodeLens.refresh();
     resetVerification();
     agentMode.lastPassport = null;
     hub.beginRun();
@@ -85,9 +90,11 @@ export async function activate(context: vscode.ExtensionContext) {
     }
     const extension = path.extname(change.path) || '.txt';
     const left = diffProvider.set(`${change.id}-original`, change.originalContent, extension);
-    const right = diffProvider.set(change.id, change.proposedContent, extension);
-    const label = futureId ? `Future ${futureId}: ` : 'Voltix: ';
-    await vscode.commands.executeCommand('vscode.diff', left, right, `${label}${change.path} (original ↔ proposed)`, { preview: true });
+    const right = diffProvider.set(change.id, change.proposedContent, extension, futureId ? undefined : change.id);
+    const label = futureId
+      ? `Future ${futureId}: ${change.path} (original ↔ proposed)`
+      : `Review: ${change.path} (${change.hunks.length} hunks)`;
+    await vscode.commands.executeCommand('vscode.diff', left, right, label, { preview: true });
   };
 
   const openInEditor = (focusFutures = false) => {
@@ -108,7 +115,10 @@ export async function activate(context: vscode.ExtensionContext) {
 
   const syncDecision = (changeId: string) => {
     const change = PendingChanges.get(changeId);
-    if (change) hub.post({ type: 'change_decision', change });
+    if (change) {
+      hub.post({ type: 'change_decision', change });
+      hunkCodeLens.refresh();
+    }
   };
 
   const handleInbound = async (message: PanelInboundMessage, surface: AgentSurface) => {
@@ -250,6 +260,23 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('voltix.openPanel', () => vscode.commands.executeCommand(`${AgentViewProvider.viewType}.focus`)),
     vscode.commands.registerCommand('voltix.openInEditor', () => openInEditor()),
     vscode.commands.registerCommand('voltix.undoLastApply', undo),
+    vscode.commands.registerCommand('voltix.codeLensInfo', () => undefined),
+    vscode.commands.registerCommand('voltix.acceptHunk', (changeId: string, hunkId: string) => {
+      PendingChanges.acceptHunk(changeId, hunkId);
+      syncDecision(changeId);
+    }),
+    vscode.commands.registerCommand('voltix.rejectHunk', (changeId: string, hunkId: string) => {
+      PendingChanges.rejectHunk(changeId, hunkId);
+      syncDecision(changeId);
+    }),
+    vscode.commands.registerCommand('voltix.acceptFile', (changeId: string) => {
+      PendingChanges.acceptFile(changeId);
+      syncDecision(changeId);
+    }),
+    vscode.commands.registerCommand('voltix.rejectFile', (changeId: string) => {
+      PendingChanges.rejectFile(changeId);
+      syncDecision(changeId);
+    }),
     vscode.commands.registerCommand('voltix.inlineEdit', async () => {
       // Inline edit reads the default store, so it must not share the MCP tools with a running future.
       if (futures.busy || agentRunning || inlineRunning) {
@@ -258,7 +285,10 @@ export async function activate(context: vscode.ExtensionContext) {
       }
       inlineRunning = true;
       try {
-        await runInlineEdit(diffProvider, changeId => hub.post({ type: 'change_removed', changeId }));
+        await runInlineEdit(diffProvider, changeId => {
+          hub.post({ type: 'change_removed', changeId });
+          hunkCodeLens.refresh();
+        });
       } finally {
         inlineRunning = false;
       }
@@ -326,7 +356,10 @@ export async function activate(context: vscode.ExtensionContext) {
           proposedContent: input.proposedContent,
           reason,
         });
-        if (isDefault) hub.post({ type: 'pending_change', change });
+        if (isDefault) {
+          hub.post({ type: 'pending_change', change });
+          hunkCodeLens.refresh();
+        }
       },
     });
     logger.appendLine('MCP server listening on http://127.0.0.1:7891/mcp');
