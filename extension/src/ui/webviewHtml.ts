@@ -42,6 +42,10 @@ export function buildAgentHtml(): string {
     .panel-section>summary:hover{color:var(--vscode-foreground)}
     .receipt-body{padding:0 12px 12px}
     .receipt-summary{color:var(--tf-muted);margin:0 0 8px}
+    .context-progress{height:7px;margin:6px 0 8px;border-radius:999px;background:var(--vscode-progressBar-background,var(--tf-border));overflow:hidden}
+    .context-progress-fill{height:100%;width:0;background:var(--tf-accent);transition:width .15s}
+    .context-files,.context-left-out{margin:4px 0;color:var(--tf-muted);font-size:11px;overflow-wrap:anywhere}
+    .context-file{display:block}
     .receipt-item{border-top:1px solid var(--tf-border);padding:8px 0}
     .receipt-item summary{cursor:pointer;overflow-wrap:anywhere}
     .receipt-item pre{max-height:240px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;padding:8px 10px;background:var(--vscode-textCodeBlock-background,var(--vscode-editor-background));border:1px solid var(--tf-border);border-radius:6px;font-size:12px;line-height:1.5}
@@ -337,9 +341,14 @@ export function buildAgentHtml(): string {
       <span id="model-name" class="mini-value">Not set</span>
       <span id="model-note" class="mini-note"></span>
     </section>
-    <section class="mini-card" aria-label="Context receipt summary">
-      <span class="mini-label">Context receipt</span>
+    <section class="mini-card context-budget-card" aria-label="Context budget">
+      <span class="mini-label">Context budget</span>
       <span id="context-summary" class="mini-value">No context yet</span>
+      <div id="context-progress" class="context-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Context token budget">
+        <div id="context-progress-fill" class="context-progress-fill"></div>
+      </div>
+      <div id="context-files" class="context-files">No selected files</div>
+      <p id="context-left-out" class="context-left-out">Left out: 0 files</p>
       <button id="context-view" class="link-button" type="button" disabled>View</button>
     </section>
   </div>
@@ -418,6 +427,10 @@ export function buildAgentHtml(): string {
     const modelName = document.getElementById('model-name');
     const modelNote = document.getElementById('model-note');
     const contextSummary = document.getElementById('context-summary');
+    const contextProgress = document.getElementById('context-progress');
+    const contextProgressFill = document.getElementById('context-progress-fill');
+    const contextFiles = document.getElementById('context-files');
+    const contextLeftOut = document.getElementById('context-left-out');
     const contextView = document.getElementById('context-view');
     const receiptSection = document.getElementById('receipt');
     const activitySection = document.getElementById('activity-section');
@@ -1309,16 +1322,35 @@ export function buildAgentHtml(): string {
       clear(receiptBody);
       const items = Array.isArray(receipt.items) ? receipt.items : [];
       const fileCount = new Set(items.map(item => item.path)).size;
-      contextSummary.textContent = fileCount + ' file' + (fileCount === 1 ? '' : 's') + ' · ~' + (receipt.totalTokens || 0).toLocaleString() + ' tokens';
+      const totalTokens = Number(receipt.totalTokens) || 0;
+      const budget = Number(receipt.budget) || 0;
+      const searchedCount = Number(receipt.searchedCount) || 0;
+      const percentage = budget > 0 ? Math.min(100, Math.round((totalTokens / budget) * 100)) : 0;
+      contextSummary.textContent = fileCount + ' files · ' + totalTokens.toLocaleString() + ' of ' +
+        budget.toLocaleString() + ' tokens · searched ' + searchedCount.toLocaleString() + ' files';
+      contextProgress.setAttribute('aria-valuenow', String(percentage));
+      contextProgressFill.style.width = percentage + '%';
+      clear(contextFiles);
+      if (items.length) {
+        items.forEach(item => contextFiles.appendChild(makeElement('span', 'context-file', item.path || 'Unknown file')));
+      } else {
+        contextFiles.appendChild(makeElement('span', 'context-file', 'No selected files'));
+      }
+      const excludedItems = Array.isArray(receipt.excludedItems) ? receipt.excludedItems : [];
+      const excludedCount = Number(receipt.excluded) || 0;
+      const excludedNames = excludedItems.slice(0, 3).map(item => item.path || 'Unknown file');
+      contextLeftOut.textContent = excludedCount
+        ? 'Left out: ' + excludedCount + ' files (' + excludedNames.join(', ') + (excludedCount > excludedNames.length ? '…' : '') + ')'
+        : 'Left out: 0 files';
       contextView.disabled = false;
       receiptCount.textContent = items.length ? '(' + items.length + ' selected)' : '(no files selected)';
       const summaryParts = [
         items.length + ' selected',
-        (receipt.excluded || 0) + ' matched candidates excluded by budget',
-        (receipt.totalTokens || 0) + ' of ' + (receipt.budget || 0) + ' estimated tokens'
+        excludedCount + ' matched candidates excluded by budget',
+        totalTokens + ' of ' + budget + ' estimated tokens',
+        'searched ' + searchedCount + ' files'
       ];
       receiptBody.appendChild(makeElement('p', 'receipt-summary', summaryParts.join(' | ')));
-      const excludedItems = Array.isArray(receipt.excludedItems) ? receipt.excludedItems : [];
       if (excludedItems.length) {
         const excluded = makeElement('details', 'receipt-item');
         excluded.appendChild(makeElement('summary', '', 'Excluded files (' + excludedItems.length + ')'));

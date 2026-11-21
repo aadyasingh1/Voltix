@@ -14,6 +14,7 @@ export interface ContextItem {
 export interface ContextReceipt {
   items: ContextItem[];
   excluded: number;
+  searchedCount: number;
   excludedItems?: Array<{
     path: string;
     reason: 'context_budget';

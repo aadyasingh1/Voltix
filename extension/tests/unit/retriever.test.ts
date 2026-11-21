@@ -16,6 +16,7 @@ test('receipt records the exact relevant excerpt sent as context', async () => {
 
     expect(context.items).toHaveLength(1);
     expect(context.receipt.items).toEqual(context.items);
+    expect(context.receipt.searchedCount).toBe(1);
     expect(context.items[0].startLine).toBe(100);
     expect(context.items[0].endLine).toBe(299);
     expect(context.items[0].content).toContain('export function TargetSymbol() {}');
@@ -41,6 +42,7 @@ test('receipt reports context excluded because of the token budget', async () =>
     const context = await assembleContext('@symbol:TargetSymbol', workspace, 1);
 
     expect(context.receipt.budget).toBe(1);
+    expect(context.receipt.searchedCount).toBe(1);
     expect(context.receipt.items).toEqual([]);
     expect(context.receipt.excluded).toBe(1);
     expect(context.receipt.excludedItems).toEqual([

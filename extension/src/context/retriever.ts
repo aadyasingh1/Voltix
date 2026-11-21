@@ -63,6 +63,7 @@ export async function assembleContext(query: string, workspaceRoot: string, budg
     receipt: {
       items: selected,
       excluded: items.length - selected.length,
+      searchedCount: paths.length,
       excludedItems: items
         .filter(item => !selectedPaths.has(item.absPath))
         .map(item => ({ path: item.path, reason: 'context_budget' as const })),
