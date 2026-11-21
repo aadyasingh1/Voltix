@@ -11,6 +11,7 @@ export interface ModelRunOptions {
   /** Called with each new session, so the caller can cancel it or send it follow-up turns. */
   onSession?: (session: Session) => void;
   onModel?: (model: string, fallbackFrom?: string) => void;
+  sessionTitle?: string;
   /** Called before a fallback model starts, so partial work from the failed model can be dropped. */
   onFallback?: () => void;
 }
@@ -32,7 +33,7 @@ export async function runOnModelChain(prompt: string, options: ModelRunOptions):
     if (index > 0) options.onFallback?.();
     options.onModel?.(model, index > 0 ? options.models[index - 1] : undefined);
     try {
-      const session = await createSession(model);
+      const session = await createSession(model, options.sessionTitle);
       options.onSession?.(session);
       if (options.isCancelled()) return { status: 'cancelled', model, session, text: '' };
       let text = '';

@@ -64,7 +64,7 @@ export class AgentMode {
       for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
         try {
           if (!this.client || !this.sessionId || this.sessionModel !== model) {
-            const session = await createSession(model);
+            const session = await createSession(model, `Voltix · ${text.slice(0, 60)}`);
             this.client = session.client;
             this.sessionId = session.sessionId;
             this.sessionModel = model;

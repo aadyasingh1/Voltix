@@ -68,3 +68,8 @@ test('uses the model passed in (fallback) instead of the configured one', async 
   await createSession('backup/model');
   expect(mockCreate.mock.calls[0][0].agent.spec.model).toEqual({ name: 'backup/model' });
 });
+
+test('sets a readable session title in TrueForge session metadata', async () => {
+  await createSession('test-model', 'Voltix · Add config command');
+  expect(mockCreate.mock.calls[0][0].metadata).toEqual({ title: 'Voltix · Add config command' });
+});

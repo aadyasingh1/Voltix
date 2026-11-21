@@ -30,11 +30,12 @@ export function buildAgentSpec(modelName: string) {
   };
 }
 
-export async function createSession(modelName?: string) {
+export async function createSession(modelName?: string, title?: string) {
   const client = createTrueForgeClient();
   const settings = getSettings();
   const response = await client.sessions.create({
     agent: { spec: buildAgentSpec(modelName ?? settings.model) } as any,
+    ...(title ? { metadata: { title } } : {}),
   });
   return { client, sessionId: (response as any).data?.id ?? (response as any).id };
 }

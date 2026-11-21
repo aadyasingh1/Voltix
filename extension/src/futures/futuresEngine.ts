@@ -181,6 +181,7 @@ export class FuturesEngine {
       const emit = this.forwardTools(strategy.id);
       const turn = await runOnModelChain(buildFuturePrompt(strategy, task, context), {
         models,
+        sessionTitle: `Voltix · Future ${strategy.id}: ${strategy.title}`,
         isCancelled: () => this.cancelled,
         emit,
         onSession: session => { this.session = session; },
