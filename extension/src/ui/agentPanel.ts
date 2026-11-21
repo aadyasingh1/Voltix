@@ -194,6 +194,10 @@ export class AgentPanel {
     .future-files .file-nav{width:auto}
     .future-diff{border-top:1px solid var(--tf-border);overflow:auto;max-height:520px}
     .future-diff .review-header{position:static}
+    .regret-card{border-left:3px solid var(--vscode-editorWarning-foreground,#cca700)}
+    .regret-heading{padding:10px 12px 0;font-weight:600}
+    .regret-list{margin:4px 0 0;padding:0 12px 4px 30px}
+    .regret-list li{overflow-wrap:anywhere}
     @media(max-width:640px){.review-layout{grid-template-columns:1fr}.review-heading{align-items:flex-start;flex-wrap:wrap}.future-grid{grid-template-columns:1fr}}
     @media(prefers-reduced-motion:reduce){.step-icon.run{animation:none}}
   </style>
@@ -298,7 +302,30 @@ export class AgentPanel {
     state.futures = emptyFutures();
 
     function emptyFutures() {
-      return { strategies: [], usedFallback: false, phases: {}, results: {}, rows: null, viewing: null, viewFileIndex: 0, chosen: null };
+      return { strategies: [], usedFallback: false, phases: {}, results: {}, rows: null, viewing: null, viewFileIndex: 0, chosen: null, regret: null };
+    }
+
+    function regretList(card, title, items) {
+      card.appendChild(makeElement('div', 'regret-heading', title));
+      const list = makeElement('ul', 'regret-list');
+      (items || []).forEach(item => list.appendChild(makeElement('li', '', item)));
+      card.appendChild(list);
+    }
+
+    function renderRegret() {
+      const regret = state.futures.regret;
+      const card = makeElement('section', 'card regret-card');
+      const head = makeElement('div', 'card-head');
+      head.appendChild(makeElement('span', 'card-title', 'Regret check · Future ' + regret.futureId));
+      head.appendChild(makeElement('span', 'pill warn', 'Hypothetical - based on the evidence above'));
+      card.appendChild(head);
+      if (regret.source === 'evidence') {
+        card.appendChild(makeElement('p', 'card-note', 'The model gave no usable answer, so these points come directly from the measured evidence.'));
+      }
+      regretList(card, 'What you gain', regret.gain);
+      regretList(card, 'What you give up', regret.giveUp);
+      regretList(card, 'You would regret this if…', regret.regretIf);
+      return card;
     }
 
     function setFuturesMode(open) {
@@ -444,6 +471,7 @@ export class AgentPanel {
       section.appendChild(grid);
       futuresArea.appendChild(section);
       if (futures.rows) futuresArea.appendChild(renderComparison());
+      if (futures.regret) futuresArea.appendChild(renderRegret());
       if (futures.viewing) {
         const diff = renderFutureDiff();
         if (diff) futuresArea.appendChild(diff);
@@ -1242,6 +1270,9 @@ export class AgentPanel {
         state.futures.rows = message.rows || [];
         output.textContent = 'Both futures are ready. Compare the evidence, then choose one.';
         status.textContent = 'Compare the evidence, then choose a future.';
+        renderFutures();
+      } else if (message.type === 'regret') {
+        state.futures.regret = message;
         renderFutures();
       } else if (message.type === 'futures_chosen') {
         state.futures.chosen = { futureId: message.futureId, otherId: message.otherId };

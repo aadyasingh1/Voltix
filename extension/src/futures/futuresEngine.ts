@@ -14,6 +14,7 @@ import type {
 } from '../../../shared/types';
 import { buildComparison, buildEvidence } from './evidence';
 import { runOnModelChain, type Session } from './modelRunner';
+import { runRegretCheck } from './regretCheck';
 import { planStrategies } from './strategyPlanner';
 
 type Post = (message: PanelOutboundMessage) => void;
@@ -62,6 +63,7 @@ export class FuturesEngine {
 
   /** Re-sends the current run to a newly opened panel. */
   replay(): void {
+    if (this.busy) this.post({ type: 'busy', busy: true, label: 'Futures are still running…' });
     const run = this.run;
     if (!run) return;
     this.post({ type: 'futures_plan', strategies: run.strategies, usedFallback: run.usedFallback });
@@ -262,11 +264,34 @@ export class FuturesEngine {
       throw new Error('Apply or discard the current proposed changes before choosing a future.');
     }
 
+    const otherId: FutureId = futureId === 'A' ? 'B' : 'A';
+    const otherEvidence = run.entries.get(otherId)?.evidence;
+
     this.choosing = true;
+    this.cancelled = false;
     try {
+      if (otherEvidence) {
+        this.post({ type: 'busy', busy: true, label: 'Writing the Regret Check from the evidence…' });
+        setActiveStore(new PendingChangeStore(), READ_ONLY_ACCESS);
+        const regret = await runRegretCheck(entry.evidence, otherEvidence, {
+          models: getModelChain(),
+          isCancelled: () => this.cancelled,
+          onSession: session => { this.session = session; },
+        });
+        resetActiveStore();
+        // Discard All during the Regret Check means the user no longer wants this future.
+        if (this.run !== run) {
+          this.post({ type: 'busy', busy: false });
+          return;
+        }
+        this.post({ type: 'regret', futureId, ...regret });
+        this.post({ type: 'busy', busy: false });
+      }
       this.adopt(entry, run);
     } finally {
+      resetActiveStore();
       this.choosing = false;
+      this.session = undefined;
     }
   }
 
@@ -304,12 +329,13 @@ export class FuturesEngine {
 
   /** Drops every future. Nothing from a future has reached the review list or the disk. */
   async discard(): Promise<void> {
+    // Cleared first, so a Regret Check that finishes during the cancel cannot adopt this future.
+    this.run = null;
     if (this.busy) {
       try { await this.cancel(); } catch (error) {
         getLogger().appendLine(`Cancelling futures failed: ${error instanceof Error ? error.message : error}`);
       }
     }
-    this.run = null;
     this.post({ type: 'futures_cleared' });
   }
 

@@ -162,6 +162,7 @@ export type PanelOutboundMessage =
   | { type: 'future_progress'; futureId: FutureId; phase: FuturePhase; label: string }
   | { type: 'future_result'; futureId: FutureId; evidence: FutureEvidence; passport: ChangePassport | null; changes: PendingChange[] }
   | { type: 'futures_compare'; rows: ComparisonRow[] }
+  | { type: 'regret'; futureId: FutureId; gain: string[]; giveUp: string[]; regretIf: string[]; source: 'model' | 'evidence' }
   | { type: 'futures_chosen'; futureId: FutureId; otherId: FutureId }
   | { type: 'futures_cleared' }
   | {

@@ -28,6 +28,7 @@ import { processTurn } from '../../src/agent/streamProcessor';
 import { buildComparison, findNewImports } from '../../src/futures/evidence';
 import { FuturesEngine } from '../../src/futures/futuresEngine';
 import { extractJsonObject } from '../../src/futures/json';
+import { buildRegretPrompt, deriveRegret, parseRegret } from '../../src/futures/regretCheck';
 import { parseStrategies } from '../../src/futures/strategyPlanner';
 import { FULL_ACCESS, getActiveStore, getToolPolicy, resetActiveStore } from '../../src/review/activeStore';
 import { PendingChanges, PendingChangeStore } from '../../src/review/pendingChanges';
@@ -257,6 +258,113 @@ describe('FuturesEngine', () => {
     await engine.choose('B');
     expect(PendingChanges.getAll()).toHaveLength(1);
   }, 60000);
+});
+
+describe('Regret Check', () => {
+  const chosen = evidence({
+    added: 5,
+    removed: 1,
+    blastRadius: 2,
+    probe: { command: 'flask config', exitCode: 0, passed: true, timedOut: false, output: 'SECRET_KEY=do-not-send' },
+  });
+  const other = evidence({ futureId: 'B', strategy: { id: 'B', title: 'Other design', approach: 'y', tradeoff: 'z' }, added: 30 });
+
+  it('parses fenced model JSON and rejects incomplete answers', () => {
+    const json = JSON.stringify({ gain: ['g1', 'g2', 'g3', 'g4'], giveUp: ['u'], regretIf: ['r'] });
+    expect(parseRegret('```json\n' + json + '\n```')?.gain).toEqual(['g1', 'g2', 'g3']);
+    expect(parseRegret('{"gain":[],"giveUp":["u"],"regretIf":["r"]}')).toBeNull();
+    expect(parseRegret('not json')).toBeNull();
+  });
+
+  it('never sends probe output to the model', () => {
+    const prompt = buildRegretPrompt(chosen, other);
+    expect(prompt).not.toContain('do-not-send');
+    expect(prompt).toContain('"passed":true');
+  });
+
+  it('derives bullets from the measured evidence', () => {
+    const derived = deriveRegret(chosen, other);
+    expect(derived.gain.join(' ')).toContain('6 changed lines vs 31');
+    expect(derived.giveUp.join(' ')).toContain('Other design');
+    expect(derived.regretIf.join(' ')).toContain('2 file(s)');
+    expect(derived.gain.length).toBeLessThanOrEqual(3);
+  });
+});
+
+describe('FuturesEngine Regret Check', () => {
+  const session = { client: { sessions: { cancel: jest.fn(async () => undefined) } }, sessionId: 's' };
+  const REGRET = JSON.stringify({ gain: ['g'], giveUp: ['u'], regretIf: ['r'] });
+  let messages: PanelOutboundMessage[];
+  let engine: FuturesEngine;
+  let regretTurn: (emit: (m: PanelOutboundMessage) => void) => Promise<{ status: string; message?: string }>;
+
+  beforeAll(() => {
+    fs.mkdirSync(mockRoot, { recursive: true });
+    fs.writeFileSync(path.join(mockRoot, 'package.json'), JSON.stringify({ scripts: { test: 'node check.js' } }));
+    fs.writeFileSync(path.join(mockRoot, 'check.js'), "process.exit(require('./value.json').ok ? 0 : 1)\n");
+    fs.writeFileSync(path.join(mockRoot, 'value.json'), '{"ok": false}');
+  });
+  afterAll(() => fs.rmSync(mockRoot, { recursive: true, force: true }));
+
+  beforeEach(async () => {
+    PendingChanges.clear();
+    resetVerification();
+    resetActiveStore();
+    messages = [];
+    mockSettings.model = 'test/model';
+    mockSettings.fallbackModels = [];
+    mockSettings['verify.maxFixRounds'] = 0;
+    regretTurn = async emit => {
+      emit({ type: 'text_done', fullContent: REGRET });
+      return { status: 'done' };
+    };
+    (createSession as jest.Mock).mockReset().mockResolvedValue(session);
+    (processTurn as jest.Mock).mockReset().mockImplementation(async (_c: unknown, _s: string, prompt: string, emit: (m: PanelOutboundMessage) => void) => {
+      if (prompt.startsWith('Plan two')) {
+        emit({ type: 'text_done', fullContent: PLAN });
+        return { status: 'done' };
+      }
+      if (prompt.startsWith('The user chose')) {
+        // A misbehaving model edits during the Regret Check: it must land in a throw-away store.
+        expect(getToolPolicy().allowEdits).toBe(false);
+        getActiveStore().add({ path: 'rogue.py', absPath: path.join(mockRoot, 'rogue.py'), originalExists: false, originalContent: '', proposedContent: 'x', reason: '' });
+        return regretTurn(emit);
+      }
+      getActiveStore().add({ path: 'value.json', absPath: path.join(mockRoot, 'value.json'), originalExists: true, originalContent: '{"ok": false}', proposedContent: '{"ok": true}', reason: 'test' });
+      return { status: 'done' };
+    });
+    engine = new FuturesEngine(message => messages.push(message), () => undefined);
+    await engine.explore('task');
+  }, 60000);
+
+  const regretMessage = () => messages.find(item => item.type === 'regret') as Extract<PanelOutboundMessage, { type: 'regret' }> | undefined;
+
+  it('posts the model answer and adopts only the chosen changes', async () => {
+    await engine.choose('A');
+    expect(regretMessage()).toMatchObject({ futureId: 'A', gain: ['g'], source: 'model' });
+    expect(PendingChanges.getAll().map(change => change.path)).toEqual(['value.json']);
+    expect(getActiveStore()).toBe(PendingChanges);
+    expect(messages.findIndex(item => item.type === 'regret')).toBeLessThan(messages.findIndex(item => item.type === 'futures_chosen'));
+  });
+
+  it('still moves the future to review when the model fails', async () => {
+    regretTurn = async () => ({ status: 'error', message: 'model down' });
+    await engine.choose('B');
+    expect(regretMessage()?.source).toBe('evidence');
+    expect(PendingChanges.getAll()).toHaveLength(1);
+  });
+
+  it('does not adopt a future discarded during the Regret Check', async () => {
+    regretTurn = async emit => {
+      await engine.discard();
+      emit({ type: 'text_done', fullContent: REGRET });
+      return { status: 'done' };
+    };
+    await engine.choose('A');
+    expect(PendingChanges.getAll()).toHaveLength(0);
+    expect(regretMessage()).toBeUndefined();
+    expect(messages.at(-1)).toEqual({ type: 'busy', busy: false });
+  });
 });
 
 describe('runProbeInSandbox', () => {
