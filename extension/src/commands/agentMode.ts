@@ -41,7 +41,9 @@ export class AgentMode {
     this.cancelled = false;
     const emit: Emit = message => this.surface.post(message);
     const root = getWorkspaceRoot();
-    const context = await assembleContext(text, root, getSettings().contextTokenBudget, resolveSymbol);
+    const context = await assembleContext(text, root, getSettings().contextTokenBudget, resolveSymbol,
+      line => getLogger().appendLine(line));
+    emit({ type: 'context_receipt', receipt: context.receipt });
     if (this.cancelled) {
       this.lastStatus = 'cancelled';
       return;
@@ -77,7 +79,7 @@ export class AgentMode {
             return;
           }
           const result = await processTurn(this.client, this.sessionId!, enriched, emit, () => {
-            emit({ type: 'context_receipt', receipt: context.receipt });
+            emit({ type: 'busy', busy: true, label: 'Request in progress...' });
           }, {
             deferErrors: true,
             onApprovalRequired: approval => {

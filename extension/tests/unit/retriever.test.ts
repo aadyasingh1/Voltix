@@ -67,7 +67,7 @@ test('receipt reports context excluded because of the token budget', async () =>
     expect(context.receipt.items).toEqual([]);
     expect(context.receipt.excluded).toBe(1);
     expect(context.receipt.excludedItems).toEqual([
-      { path: 'src/service.ts', reason: 'context_budget' },
+      { path: 'src/service.ts', reason: 'over budget' },
     ]);
     expect(context.receipt.totalTokens).toBe(0);
   } finally {

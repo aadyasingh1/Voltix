@@ -10,6 +10,7 @@ export interface ContextItem {
   signals: ContextSignal[];
   score: number;
   tokenEstimate: number;
+  reason?: string;
 }
 
 export interface ContextReceipt {
@@ -18,7 +19,7 @@ export interface ContextReceipt {
   searchedCount: number;
   excludedItems?: Array<{
     path: string;
-    reason: 'context_budget';
+    reason: string;
   }>;
   totalTokens: number;
   budget: number;

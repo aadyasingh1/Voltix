@@ -53,6 +53,15 @@ export function buildAgentHtml(): string {
     .context-progress-fill{height:100%;width:0;background:var(--vx-violet);transition:width .15s}
     .context-files,.context-left-out{margin:4px 0;color:var(--tf-muted);font-size:11px;overflow-wrap:anywhere}
     .context-file{display:block}
+    .context-file-row{display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-top:1px solid var(--tf-border);font-size:11.5px}
+    .context-file-row>*{min-width:0}
+    .context-file-name{overflow-wrap:anywhere}
+    .context-file-meta{flex:none;color:var(--tf-muted);text-align:right}
+    .context-left-details{margin-top:6px;font-size:11.5px}
+    .context-left-details summary{cursor:pointer;color:var(--tf-muted)}
+    .context-left-file{display:block;padding:3px 0;overflow-wrap:anywhere}
+    .read-by-agent{margin-top:8px;color:var(--tf-muted);font-size:11.5px}
+    .read-by-agent-title{display:block;margin-bottom:3px;font-weight:600;color:var(--vscode-foreground)}
     .receipt-item{border-top:1px solid var(--tf-border);padding:8px 0}
     .receipt-item summary{cursor:pointer;overflow-wrap:anywhere}
     .receipt-item pre{max-height:240px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;padding:8px 10px;background:var(--vscode-textCodeBlock-background,var(--vscode-editor-background));border:1px solid var(--tf-border);border-radius:6px;font-size:12px;line-height:1.5}
@@ -397,7 +406,11 @@ export function buildAgentHtml(): string {
         <div id="context-progress-fill" class="context-progress-fill"></div>
       </div>
       <div id="context-files" class="context-files">No selected files</div>
-      <p id="context-left-out" class="context-left-out">Left out: 0 files</p>
+      <details id="context-left-details" class="context-left-details">
+        <summary id="context-left-out">Left out (0)</summary>
+        <div id="context-left-list"></div>
+      </details>
+      <div id="read-by-agent" class="read-by-agent"></div>
       <button id="context-view" class="link-button" type="button" hidden>View</button>
     </section>
   </div>
@@ -450,6 +463,7 @@ export function buildAgentHtml(): string {
       activeModel: '',
       recentRuns: [],
       pendingApproval: null,
+      readByAgent: [],
       sessionId: '',
       safetyProofs: [],
       messages: [],
@@ -486,6 +500,9 @@ export function buildAgentHtml(): string {
     const contextProgressFill = document.getElementById('context-progress-fill');
     const contextFiles = document.getElementById('context-files');
     const contextLeftOut = document.getElementById('context-left-out');
+    const contextLeftList = document.getElementById('context-left-list');
+    const contextLeftDetails = document.getElementById('context-left-details');
+    const readByAgent = document.getElementById('read-by-agent');
     const contextView = document.getElementById('context-view');
     const receiptSection = document.getElementById('receipt');
     const activitySection = document.getElementById('activity-section');
@@ -1080,6 +1097,13 @@ export function buildAgentHtml(): string {
       while (element.firstChild) element.removeChild(element.firstChild);
     }
 
+    function renderReadByAgent() {
+      clear(readByAgent);
+      if (!state.readByAgent.length) return;
+      readByAgent.appendChild(makeElement('span', 'read-by-agent-title', 'Read by agent'));
+      state.readByAgent.slice(-8).forEach(entry => readByAgent.appendChild(makeElement('div', 'context-left-file', entry)));
+    }
+
     function renderConversation() {
       clear(conversation);
       if (!state.messages.length) {
@@ -1483,12 +1507,13 @@ export function buildAgentHtml(): string {
       const searchedCount = Number(receipt.searchedCount) || 0;
       const percentage = budget > 0 ? Math.min(100, Math.round((totalTokens / budget) * 100)) : 0;
       if (fileCount === 0) {
-        contextSummary.textContent = 'No files loaded yet';
-        contextProgress.hidden = true;
+        contextSummary.textContent = 'Budget ' + budget.toLocaleString() + ' tokens · used ' + totalTokens.toLocaleString();
+        contextProgress.hidden = false;
+        contextProgress.setAttribute('aria-valuenow', '0');
+        contextProgressFill.style.width = '0%';
         contextView.hidden = true;
       } else {
-        contextSummary.textContent = fileCount + (fileCount === 1 ? ' file · ' : ' files · ') + totalTokens.toLocaleString() + ' of ' +
-          budget.toLocaleString() + ' tokens · searched ' + searchedCount.toLocaleString() + ' files';
+        contextSummary.textContent = 'Budget ' + budget.toLocaleString() + ' tokens · used ' + totalTokens.toLocaleString();
         contextProgress.hidden = false;
         contextProgress.setAttribute('aria-valuenow', String(percentage));
         contextProgressFill.style.width = percentage + '%';
@@ -1498,12 +1523,18 @@ export function buildAgentHtml(): string {
       clear(contextFiles);
       if (items.length) {
         items.forEach(item => {
-          const pinned = Array.isArray(item.signals) && item.signals.includes('pinned_symbol');
-          const label = pinned
-            ? (item.symbolName || 'Symbol') + ' (pinned @symbol) · ' + (item.path || 'Unknown file') + ':' +
-              (Number(item.startLine || 0) + 1) + '–' + (Number(item.endLine || 0) + 1)
-            : (item.path || 'Unknown file');
-          contextFiles.appendChild(makeElement('span', 'context-file', label));
+          const row = makeElement('div', 'context-file-row');
+          const pinnedSymbol = Array.isArray(item.signals) && item.signals.includes('pinned_symbol');
+          const pinnedFile = Array.isArray(item.signals) && item.signals.includes('explicit_mention');
+          const reason = pinnedSymbol
+            ? '@symbol pinned'
+            : pinnedFile
+              ? '@file pinned'
+              : item.reason || 'low score ' + (Number(item.score || 0) > 1 ? (Number(item.score || 0) / 100).toFixed(2) : Number(item.score || 0).toFixed(2));
+          row.appendChild(makeElement('span', 'context-file-name', (item.path || 'Unknown file')));
+          row.appendChild(makeElement('span', 'context-file-meta',
+            (item.tokenEstimate || 0).toLocaleString() + ' tokens · ' + reason));
+          contextFiles.appendChild(row);
         });
       } else {
         contextFiles.appendChild(makeElement('span', 'context-file', 'No selected files'));
@@ -1511,9 +1542,13 @@ export function buildAgentHtml(): string {
       const excludedItems = Array.isArray(receipt.excludedItems) ? receipt.excludedItems : [];
       const excludedCount = Number(receipt.excluded) || 0;
       const excludedNames = excludedItems.slice(0, 3).map(item => item.path || 'Unknown file');
-      contextLeftOut.textContent = excludedCount
-        ? 'Left out: ' + excludedCount + ' files (' + excludedNames.join(', ') + (excludedCount > excludedNames.length ? '…' : '') + ')'
-        : 'Left out: 0 files';
+      contextLeftOut.textContent = 'Left out (' + excludedCount + ')';
+      contextLeftDetails.hidden = excludedCount === 0;
+      clear(contextLeftList);
+      excludedItems.forEach(item => {
+        const detail = item.path + ' · ' + (item.reason === 'context_budget' ? 'over budget' : item.reason || 'low score');
+        contextLeftList.appendChild(makeElement('span', 'context-left-file', detail));
+      });
       receiptCount.textContent = items.length ? '(' + items.length + ' selected)' : '(no files selected)';
       const summaryParts = [
         items.length + ' selected',
@@ -1767,6 +1802,8 @@ export function buildAgentHtml(): string {
 
     function resetReview() {
       state.runStarted = false;
+      state.readByAgent = [];
+      renderReadByAgent();
       state.changes = [];
       state.selectedId = null;
       state.decisions.clear();
@@ -1789,6 +1826,8 @@ export function buildAgentHtml(): string {
 
     function startRun(mode) {
       state.runStarted = true;
+      state.readByAgent = [];
+      renderReadByAgent();
       updateEmptyState();
       startStepper(mode);
       activitySection.open = true;
@@ -1942,6 +1981,17 @@ export function buildAgentHtml(): string {
         response.content += message.content || '';
         renderConversation();
       } else if (message.type === 'tool_start') {
+        let toolArgs = {};
+        try { toolArgs = JSON.parse(message.argsPreview || '{}'); } catch (_) {}
+        if (message.name === 'search_workspace') {
+          state.readByAgent.push("search '" + (toolArgs.query || '') + "'");
+          renderReadByAgent();
+        } else if (message.name === 'read_file') {
+          const start = toolArgs.start_line ? toolArgs.start_line : 1;
+          const end = toolArgs.end_line ? toolArgs.end_line : start;
+          state.readByAgent.push("read " + (toolArgs.path || 'unknown file') + ' ' + start + '–' + end);
+          renderReadByAgent();
+        }
         updateActivity({
           id: message.id,
           name: message.name || 'Tool request',
