@@ -170,6 +170,7 @@ export type PanelOutboundMessage =
   | { type: 'review_reset' }
   | { type: 'history_state'; canUndo: boolean; files: string[] }
   | { type: 'focus_section'; section: 'futures' }
+  | { type: 'replay_boundary'; phase: 'start' | 'end' }
   | {
       type: 'apply_result';
       success: boolean;

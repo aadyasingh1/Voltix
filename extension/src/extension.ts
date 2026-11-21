@@ -109,7 +109,10 @@ export async function activate(context: vscode.ExtensionContext) {
       }
     } else if (message.type === 'panel_ready') {
       surface.post({ type: 'futures_config', probeCommand: getSettings().futuresProbeCommand });
+      surface.post({ type: 'model_info', model: getSettings().model });
+      surface.post({ type: 'replay_boundary', phase: 'start' });
       hub.replayTo(surface, PendingChanges.getAll());
+      surface.post({ type: 'replay_boundary', phase: 'end' });
       postHistory(surface);
       if (surface === editorPanel && focusFuturesWhenReady) {
         focusFuturesWhenReady = false;

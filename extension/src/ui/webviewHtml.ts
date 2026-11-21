@@ -8,12 +8,9 @@ export function buildAgentHtml(): string {
   <style>
     /* Native VS Code look: every colour and font comes from the user's active theme. */
     *{box-sizing:border-box}
-    :root{--tf-accent:#7c5cff;--tf-accent2:#2bb3ff;--tf-radius:8px;--tf-border:var(--vscode-widget-border,var(--vscode-panel-border,rgba(128,128,128,.35)));--tf-card:var(--vscode-sideBar-background,var(--vscode-editor-background));--tf-muted:var(--vscode-descriptionForeground)}
+    :root{--tf-accent:#8b5cf6;--tf-accent2:#6366f1;--tf-gradient:linear-gradient(135deg,var(--tf-accent),var(--tf-accent2));--tf-ok:var(--vscode-testing-iconPassed,#2ea043);--tf-bad:var(--vscode-errorForeground,#e5484d);--tf-warn:var(--vscode-editorWarning-foreground,#b58900);--tf-tint:color-mix(in srgb,var(--tf-accent) 12%,transparent);--tf-radius:8px;--tf-border:var(--vscode-widget-border,var(--vscode-panel-border,rgba(128,128,128,.35)));--tf-card:var(--vscode-sideBar-background,var(--vscode-editor-background));--tf-muted:var(--vscode-descriptionForeground)}
     body{margin:0;padding:20px 22px 32px;font-family:var(--vscode-font-family);font-size:var(--vscode-font-size,13px);line-height:1.5;color:var(--vscode-foreground);background:var(--vscode-editor-background)}
     h1,h2,h3,p{margin-top:0}
-    h1{display:flex;align-items:center;gap:10px;font-size:20px;font-weight:700;margin-bottom:16px;letter-spacing:-.01em}
-    h1::before{content:"";width:22px;height:22px;border-radius:6px;background:linear-gradient(135deg,var(--tf-accent),var(--tf-accent2));box-shadow:0 2px 8px rgba(124,92,255,.45)}
-    h1::after{content:"Coding agent · runs on TrueForge";font-size:11px;font-weight:500;letter-spacing:.02em;padding:2px 8px;border-radius:999px;color:var(--tf-muted);border:1px solid var(--tf-border)}
     h2{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--tf-muted)}
     h3{font-size:14px;font-weight:600}
     button{font-family:var(--vscode-font-family);font-size:12px;font-weight:500;color:var(--vscode-button-foreground);background:var(--vscode-button-background);border:1px solid transparent;border-radius:6px;padding:6px 14px;cursor:pointer;transition:background .12s,opacity .12s}
@@ -23,8 +20,8 @@ export function buildAgentHtml(): string {
     button.secondary:hover{background:var(--vscode-button-secondaryHoverBackground)}
     button.danger{color:var(--vscode-errorForeground);background:transparent;border-color:var(--tf-border)}
     button.danger:hover:not(:disabled){background:var(--vscode-inputValidation-errorBackground,rgba(255,80,80,.12))}
-    #submit{background:linear-gradient(135deg,var(--tf-accent),var(--tf-accent2));color:#fff;padding:6px 18px}
-    #submit:hover:not(:disabled){filter:brightness(1.1)}
+    #submit,#explore-start,#apply:not(:disabled),button.primary{background:var(--tf-gradient);color:#fff;border-color:transparent}
+    #submit:hover:not(:disabled),#explore-start:hover:not(:disabled),#apply:hover:not(:disabled),button.primary:hover:not(:disabled){background:var(--tf-gradient);filter:brightness(1.1)}
     button:focus-visible,textarea:focus-visible{outline:1px solid var(--vscode-focusBorder);outline-offset:2px}
     textarea{display:block;width:100%;min-height:84px;resize:vertical;margin:0 0 10px;padding:10px 12px;color:var(--vscode-input-foreground);background:var(--vscode-input-background);border:1px solid var(--vscode-input-border,var(--tf-border));border-radius:var(--tf-radius);font-family:var(--vscode-font-family);font-size:13px}
     textarea:focus{border-color:var(--vscode-focusBorder);outline:none}
@@ -169,6 +166,86 @@ export function buildAgentHtml(): string {
     .regret-list li{overflow-wrap:anywhere}
     @media(max-width:640px){.review-layout{grid-template-columns:1fr}.review-heading{align-items:flex-start;flex-wrap:wrap}.future-grid{grid-template-columns:1fr}}
     @media(prefers-reduced-motion:reduce){.step-icon.run{animation:none}}
+    [hidden]{display:none!important}
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+    .brand{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+    .logo{flex:none;display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;color:#fff;background:var(--tf-gradient);box-shadow:0 3px 10px color-mix(in srgb,var(--tf-accent) 35%,transparent)}
+    .brand-text{display:flex;flex:1 1 0;flex-direction:column;min-width:0}
+    .brand-name{font-size:17px;font-weight:700;line-height:1.2;letter-spacing:-.01em}
+    .brand-tagline{color:var(--tf-muted);font-size:11.5px}
+    .platform-pill{flex:none;padding:2px 9px;border:1px solid var(--tf-border);border-radius:999px;color:var(--tf-muted);font-size:10.5px;white-space:nowrap}
+    .task-box{border:1px solid var(--vscode-input-border,var(--tf-border));border-radius:14px;background:var(--vscode-input-background);overflow:hidden;transition:border-color .12s,box-shadow .12s}
+    .task-box:focus-within{border-color:var(--tf-accent);box-shadow:0 0 0 2px var(--tf-tint)}
+    .task-box textarea{min-height:96px;margin:0;padding:12px 14px 6px;border:none;border-radius:0;background:transparent;resize:vertical}
+    .task-box textarea:focus,.task-box textarea:focus-visible{border:none;outline:none}
+    .task-footer{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:6px 8px 8px 10px}
+    .chips{display:flex;flex:1 1 180px;flex-wrap:wrap;gap:6px;min-width:0}
+    button.chip{padding:3px 10px;border:1px solid var(--tf-border);border-radius:999px;color:var(--vscode-foreground);background:transparent;font-size:11.5px}
+    button.chip:hover:not(:disabled),button.chip[aria-expanded="true"]{border-color:var(--tf-accent);background:var(--tf-tint)}
+    .task-send{display:flex;gap:6px;margin-left:auto}
+    #submit{display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:10px;font-weight:600}
+    #probe-row{margin-top:10px}
+    #apply:disabled{color:var(--vscode-button-secondaryForeground);background:var(--vscode-button-secondaryBackground)}
+    .mode-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:6px;margin:12px 0}
+    button.mode{display:grid;grid-template-columns:28px minmax(0,1fr) auto;align-items:center;gap:8px;width:100%;padding:8px 10px;text-align:left;color:var(--vscode-foreground);background:var(--tf-card);border:1px solid var(--tf-border);border-radius:10px}
+    button.mode:hover{background:var(--vscode-list-hoverBackground);border-color:var(--tf-accent)}
+    .mode-icon{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;color:var(--vscode-textLink-foreground);background:var(--tf-tint);font-size:14px}
+    .mode-text{display:flex;flex-direction:column;min-width:0}
+    .mode-name{font-weight:600}
+    .mode-sub{overflow:hidden;color:var(--tf-muted);font-size:11px;font-weight:400;text-overflow:ellipsis;white-space:nowrap}
+    .new-badge{padding:1px 6px;border-radius:999px;color:#fff;background:var(--tf-gradient);font-size:10px;font-weight:700}
+    .stepper{margin:12px 0;padding:10px 12px;border:1px solid var(--tf-border);border-radius:12px;background:var(--tf-card)}
+    .stepper-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+    .progress-track{height:5px;margin-bottom:8px;border-radius:999px;background:var(--tf-border);overflow:hidden}
+    .progress-fill{height:100%;border-radius:999px;background:var(--tf-gradient);transition:width .3s ease}
+    .progress-fill.running{background-image:linear-gradient(110deg,var(--tf-accent) 30%,color-mix(in srgb,#fff 45%,var(--tf-accent)) 50%,var(--tf-accent2) 70%);background-size:200% 100%;animation:tfshimmer 1.4s linear infinite}
+    .progress-fill.failed{background:var(--tf-bad)}
+    @keyframes tfshimmer{to{background-position:-200% 0}}
+    .step-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:2px 12px;margin:0;padding:0;list-style:none}
+    .run-step{display:grid;grid-template-columns:18px minmax(0,1fr) auto;align-items:center;gap:6px;padding:3px 0;color:var(--tf-muted);font-size:12px}
+    .run-step.active{color:var(--vscode-foreground);font-weight:600}
+    .run-step.done{color:var(--vscode-foreground)}
+    .run-step-icon{text-align:center;font-weight:700}
+    .run-step.done .run-step-icon{color:var(--tf-ok)}
+    .run-step.failed .run-step-icon{color:var(--tf-bad)}
+    .run-step.active .run-step-icon{display:inline-block;color:var(--tf-accent);animation:tfspin 1s linear infinite}
+    .run-step-time{color:var(--tf-muted);font-size:11px;font-weight:400;font-variant-numeric:tabular-nums}
+    .dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin:12px 0}
+    .mini-card{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:0 8px;min-width:0;padding:9px 12px;border:1px solid var(--tf-border);border-radius:10px;background:var(--tf-card)}
+    .mini-card.warning{border-color:var(--tf-warn)}
+    .mini-label{grid-column:1/-1;color:var(--tf-muted);font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+    .mini-value{min-width:0;overflow-wrap:anywhere;font-weight:600}
+    .mini-note{grid-column:1/-1;color:var(--tf-muted);font-size:11.5px;overflow-wrap:anywhere}
+    .mini-card.warning .mini-note{color:var(--tf-warn)}
+    button.link-button{padding:0 4px;color:var(--vscode-textLink-foreground);background:transparent;border:none}
+    button.link-button:hover:not(:disabled){background:transparent;text-decoration:underline}
+    .verify-hero{display:grid;grid-template-columns:38px minmax(0,1fr);align-items:center;gap:10px;padding:12px}
+    .verify-mark{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;color:#fff;background:var(--tf-muted);font-size:18px;font-weight:700}
+    .verify-card.passed .verify-mark{background:var(--tf-ok)}
+    .verify-card.failed .verify-mark{background:var(--tf-bad)}
+    .verify-card.running .verify-mark,.verify-card.fixing .verify-mark{background:var(--tf-gradient)}
+    .verify-title{display:block;font-size:15px;font-weight:700}
+    .verify-card.passed .verify-title{color:var(--tf-ok)}
+    .verify-card.failed .verify-title{color:var(--tf-bad)}
+    .verify-sub{display:block;color:var(--tf-muted);font-size:12px;overflow-wrap:anywhere}
+    .card-details{border-top:1px solid var(--tf-border)}
+    .card-details>summary{cursor:pointer;padding:7px 12px;color:var(--tf-muted);font-size:12px}
+    .passport-stats{padding-bottom:10px}
+    .passport-scroll{overflow-x:auto}
+    .card-empty{margin:0;padding:10px 12px;color:var(--tf-muted);font-size:12px}
+    .future-head-risk{margin-left:auto}
+    .evidence-list{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 10px;margin:8px 0;padding:8px 0 0;border-top:1px dashed var(--tf-border);font-size:12px}
+    .evidence-list dt{color:var(--tf-muted)}
+    .evidence-list dd{margin:0;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+    .evidence-list dd.good{color:var(--tf-ok)}
+    .evidence-list dd.bad{color:var(--tf-bad)}
+    .future-card .compare-actions{margin-top:8px}
+    .future-card .compare-actions button{flex:1 1 auto}
+    .history-body{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px}
+    .history-files{min-width:0;color:var(--tf-muted);font-size:12px;overflow-wrap:anywhere}
+    .review-actions{flex-wrap:wrap}
+    .review-heading{flex-wrap:wrap}
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
     .narrow-only{display:none}
     .file-row{display:flex;flex-direction:column;gap:4px}
     .file-row-actions,.future-file-row,.compare-narrow-row{flex-wrap:wrap;align-items:center;gap:6px}
@@ -189,16 +266,25 @@ export function buildAgentHtml(): string {
   </style>
 </head>
 <body>
-  <h1>Voltix</h1>
+  <header class="brand">
+    <span class="logo" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M13.6 2.2a.75.75 0 0 1 .72.95L12.4 9.75h6.1a.75.75 0 0 1 .58 1.23l-8.6 10.55a.75.75 0 0 1-1.3-.67l1.92-6.61H5.5a.75.75 0 0 1-.58-1.23L13.02 2.47a.75.75 0 0 1 .58-.27Z"/></svg></span>
+    <span class="brand-text"><span class="brand-name">Voltix</span><span class="brand-tagline">Explore. Experiment. Choose.</span></span>
+    <span class="platform-pill">runs on TrueForge</span>
+  </header>
   <form id="prompt-form">
-    <label for="input">Describe a task</label>
-    <textarea id="input" placeholder="Describe a task..." rows="3"></textarea>
-    <div class="toolbar">
-      <button id="submit" type="submit">Send</button>
-      <button id="explore" class="secondary" type="button" aria-expanded="false" aria-controls="probe-row">Explore futures</button>
-      <button id="cancel" class="secondary" type="button">Cancel</button>
-      <button id="apply" type="button" disabled>Apply Accepted</button>
-      <button id="discard" class="danger" type="button">Discard All</button>
+    <div class="task-box">
+      <label for="input" class="sr-only">Describe a task</label>
+      <textarea id="input" placeholder="What should Voltix build or change?" rows="4"></textarea>
+      <div class="task-footer">
+        <div class="chips">
+          <button id="explore" class="chip" type="button" aria-expanded="false" aria-controls="probe-row">Explore futures</button>
+          <button id="show-risks" class="chip" type="button">Show risks of this change</button>
+        </div>
+        <div class="task-send">
+          <button id="cancel" class="secondary" type="button" hidden>Cancel</button>
+          <button id="submit" type="submit">Send <span aria-hidden="true">↑</span></button>
+        </div>
+      </div>
     </div>
     <div id="probe-row" hidden>
       <label for="probe">Probe command (optional)</label>
@@ -210,19 +296,40 @@ export function buildAgentHtml(): string {
       </div>
     </div>
   </form>
-  <div class="meta-row"><span id="model-badge" class="model-badge" hidden></span></div>
+  <nav class="mode-list" aria-label="Voltix modes">
+    <button class="mode" type="button" data-action="mode-agent"><span class="mode-icon" aria-hidden="true">✦</span><span class="mode-text"><span class="mode-name">Agent Mode</span><span class="mode-sub">Plan · Execute · Verify</span></span></button>
+    <button class="mode" type="button" data-action="mode-futures"><span class="mode-icon" aria-hidden="true">⑂</span><span class="mode-text"><span class="mode-name">Parallel Futures</span><span class="mode-sub">Build and compare two designs</span></span><span class="new-badge">New</span></button>
+    <button class="mode" type="button" data-action="mode-impact"><span class="mode-icon" aria-hidden="true">◎</span><span class="mode-text"><span class="mode-name">Impact Radar</span><span class="mode-sub">Risk and blast radius</span></span></button>
+    <button class="mode" type="button" data-action="mode-history"><span class="mode-icon" aria-hidden="true">↺</span><span class="mode-text"><span class="mode-name">History</span><span class="mode-sub">Undo the last apply</span></span></button>
+  </nav>
+  <section id="stepper" class="stepper" aria-label="Run progress" hidden></section>
   <div id="status" role="status" aria-live="polite"></div>
   <div id="error-area" aria-live="assertive"></div>
   <div id="result-area" aria-live="polite"></div>
   <div id="futures-area"></div>
-  <details id="receipt" class="panel-section">
+  <div class="dash-grid">
+    <section id="model-card" class="mini-card" aria-label="Model">
+      <span class="mini-label">Model</span>
+      <span id="model-name" class="mini-value">Not set</span>
+      <span id="model-note" class="mini-note"></span>
+    </section>
+    <section class="mini-card" aria-label="Context receipt summary">
+      <span class="mini-label">Context receipt</span>
+      <span id="context-summary" class="mini-value">No context yet</span>
+      <button id="context-view" class="link-button" type="button" disabled>View</button>
+    </section>
+  </div>
+  <div id="verify-area"></div>
+  <div id="passport-area"></div>
+  <section id="history-section" class="card" aria-label="History" hidden></section>
+  <details id="receipt" class="panel-section" hidden>
     <summary>Context Receipt <span id="receipt-count"></span></summary>
     <div id="receipt-body" class="receipt-body"><p class="receipt-summary">No context receipt for this request yet.</p></div>
   </details>
-  <section class="panel-section" aria-labelledby="activity-heading">
-    <h2 id="activity-heading">Agent activity</h2>
+  <details id="activity-section" class="panel-section">
+    <summary>Agent activity</summary>
     <ol id="activity-list" aria-live="polite"><li class="activity-item">Observed tool and turn events will appear here.</li></ol>
-  </section>
+  </details>
   <section aria-labelledby="response-heading">
     <h2 id="response-heading">Agent response</h2>
     <div id="output" aria-live="polite">The agent response will appear here.</div>
@@ -234,11 +341,11 @@ export function buildAgentHtml(): string {
       <div class="review-actions" aria-label="Review all files">
         <button id="accept-all" class="secondary" type="button" disabled>Accept All</button>
         <button id="reject-all" class="danger" type="button" disabled>Reject All</button>
+        <button id="apply" type="button" disabled>Apply Accepted</button>
+        <button id="discard" class="danger" type="button">Discard All</button>
         <button id="open-editor" class="secondary narrow-only" type="button" title="Review individual hunks in a wide editor tab">Open in Editor</button>
       </div>
     </div>
-    <div id="verify-area"></div>
-    <div id="passport-area"></div>
     <div class="review-layout">
       <nav id="file-list" aria-label="Proposed files"></nav>
       <section id="review-detail" class="wide-only" aria-live="polite"><div class="review-empty">Proposed changes will appear here.</div></section>
@@ -275,7 +382,15 @@ export function buildAgentHtml(): string {
     const acceptAllButton = document.getElementById('accept-all');
     const rejectAllButton = document.getElementById('reject-all');
     const discardButton = document.getElementById('discard');
-    const modelBadge = document.getElementById('model-badge');
+    const modelCard = document.getElementById('model-card');
+    const modelName = document.getElementById('model-name');
+    const modelNote = document.getElementById('model-note');
+    const contextSummary = document.getElementById('context-summary');
+    const contextView = document.getElementById('context-view');
+    const receiptSection = document.getElementById('receipt');
+    const activitySection = document.getElementById('activity-section');
+    const stepper = document.getElementById('stepper');
+    const historySection = document.getElementById('history-section');
     const verifyArea = document.getElementById('verify-area');
     const passportArea = document.getElementById('passport-area');
     const exploreButton = document.getElementById('explore');
@@ -288,6 +403,9 @@ export function buildAgentHtml(): string {
     state.passport = null;
     state.futures = emptyFutures();
     state.history = { canUndo: false, files: [] };
+    state.run = null;
+    state.runTimer = null;
+    state.replaying = false;
 
     function emptyFutures() {
       return { strategies: [], usedFallback: false, phases: {}, results: {}, rows: null, viewing: null, viewFileIndex: 0, chosen: null, regret: null };
@@ -322,19 +440,211 @@ export function buildAgentHtml(): string {
       if (open) probeInput.focus();
     }
 
+    function reveal(element) {
+      if (element && element.scrollIntoView) element.scrollIntoView({ block: 'start' });
+    }
+
+    function stopRunTimer() {
+      if (state.runTimer) clearInterval(state.runTimer);
+      state.runTimer = null;
+    }
+
+    function startStepper(mode) {
+      const defs = [['read', 'Reading code'], ['plan', 'Planning'], ['implement', 'Implementing'], ['verify', 'Verifying in sandbox']];
+      if (mode === 'futures') defs.push(['compare', 'Comparing futures']);
+      defs.push(['ready', mode === 'futures' ? 'Ready to choose' : 'Ready for review']);
+      stopRunTimer();
+      state.run = {
+        mode,
+        finished: false,
+        outcome: null,
+        current: -1,
+        verifyOutcome: null,
+        results: 0,
+        steps: defs.map(def => ({ key: def[0], label: def[1], status: 'pending', elapsed: 0, startedAt: null, visited: false, replayed: false })),
+      };
+      setRunStep('read');
+      if (!state.replaying) state.runTimer = setInterval(renderStepper, 1000);
+    }
+
+    function pauseActiveStep(now) {
+      state.run.steps.forEach(step => {
+        if (step.startedAt !== null) {
+          step.elapsed += now - step.startedAt;
+          step.startedAt = null;
+        }
+      });
+    }
+
+    function setRunStep(key) {
+      const run = state.run;
+      if (!run || run.finished) return;
+      const index = run.steps.findIndex(step => step.key === key);
+      if (index < 0 || index === run.current) return;
+      const now = Date.now();
+      pauseActiveStep(now);
+      run.steps.forEach((step, stepIndex) => {
+        if (stepIndex < index) step.status = step.visited ? 'done' : 'skipped';
+        else if (stepIndex > index) step.status = 'pending';
+      });
+      const step = run.steps[index];
+      step.status = 'active';
+      step.visited = true;
+      step.startedAt = now;
+      if (state.replaying) step.replayed = true;
+      run.current = index;
+      renderStepper();
+    }
+
+    function finishRun(outcome) {
+      const run = state.run;
+      if (!run || run.finished) return;
+      pauseActiveStep(Date.now());
+      run.finished = true;
+      run.outcome = outcome;
+      stopRunTimer();
+      if (outcome === 'ready') {
+        run.steps.forEach(step => { step.status = step.visited ? 'done' : 'skipped'; });
+        const last = run.steps[run.steps.length - 1];
+        last.status = 'done';
+        last.visited = true;
+        if (run.mode === 'agent' && !state.changes.some(change => !state.outcomes.has(change.id))) last.label = 'Finished, no changes';
+        const verify = run.steps.find(step => step.key === 'verify');
+        if (run.verifyOutcome === 'failed') verify.status = 'failed';
+        else if (run.verifyOutcome === 'skipped') verify.status = 'skipped';
+      } else if (run.current >= 0) {
+        run.steps[run.current].status = 'failed';
+      }
+      renderStepper();
+    }
+
+    function trackRun(message) {
+      const run = state.run;
+      if (!run || run.finished) return;
+      const current = run.current >= 0 ? run.steps[run.current].key : '';
+      if (message.type === 'tool_start') {
+        const name = String(message.name || '');
+        if (/edit_file|propose_file_change/.test(name)) setRunStep('implement');
+        else if (/verify_changes/.test(name)) setRunStep('verify');
+        else if (/read_file|search_workspace|list_workspace_files/.test(name) && (current === 'read' || current === 'plan')) setRunStep('read');
+      } else if (message.type === 'tool_done') {
+        if (current === 'read' && /read_file|search_workspace|list_workspace_files/.test(String(message.name || ''))) setRunStep('plan');
+      } else if (message.type === 'text_delta') {
+        if (current === 'read' && message.content) setRunStep('plan');
+      } else if (message.type === 'verification') {
+        if (message.phase === 'running' || message.phase === 'fixing') setRunStep('verify');
+        if (message.phase === 'passed' || message.phase === 'failed' || message.phase === 'skipped') run.verifyOutcome = message.phase;
+      } else if (message.type === 'futures_plan') {
+        setRunStep('implement');
+      } else if (message.type === 'future_progress') {
+        if (message.phase === 'implementing') setRunStep('implement');
+        else if (['verifying', 'fixing', 'probing'].indexOf(message.phase) !== -1) setRunStep('verify');
+      } else if (message.type === 'future_result') {
+        run.results++;
+        if (run.results >= 2) setRunStep('compare');
+      } else if (message.type === 'busy' && message.busy === false) {
+        finishRun('ready');
+      } else if (message.type === 'turn_done' && message.status !== 'done') {
+        finishRun(message.status === 'cancelled' ? 'cancelled' : 'failed');
+      } else if (message.type === 'error') {
+        finishRun('failed');
+      }
+    }
+
+    function formatDuration(ms) {
+      if (ms < 1000) return '<1s';
+      const seconds = Math.round(ms / 1000);
+      if (seconds < 60) return seconds + 's';
+      const rest = seconds % 60;
+      return Math.floor(seconds / 60) + 'm ' + (rest < 10 ? '0' : '') + rest + 's';
+    }
+
+    function renderStepper() {
+      clear(stepper);
+      const run = state.run;
+      stepper.hidden = !run;
+      if (!run) return;
+      const now = Date.now();
+      const head = makeElement('div', 'stepper-head');
+      head.appendChild(makeElement('span', 'card-title', run.mode === 'futures' ? 'Futures run' : 'Agent run'));
+      if (!run.finished) head.appendChild(makeElement('span', 'pill info', 'Running'));
+      else if (run.outcome === 'ready') head.appendChild(makeElement('span', 'pill ok', '✓ Complete'));
+      else head.appendChild(makeElement('span', 'pill ' + (run.outcome === 'cancelled' ? 'muted' : 'bad'), run.outcome === 'cancelled' ? 'Cancelled' : 'Failed'));
+      stepper.appendChild(head);
+      const finishedSteps = run.steps.filter(step => step.status === 'done' || step.status === 'skipped').length;
+      const percent = run.outcome === 'ready' ? 100 : Math.round(((finishedSteps + (run.finished ? 0 : 0.5)) / run.steps.length) * 100);
+      const track = makeElement('div', 'progress-track');
+      track.setAttribute('role', 'progressbar');
+      track.setAttribute('aria-valuemin', '0');
+      track.setAttribute('aria-valuemax', '100');
+      track.setAttribute('aria-valuenow', String(percent));
+      track.setAttribute('aria-label', 'Run progress');
+      const fill = makeElement('div', 'progress-fill' + (!run.finished ? ' running' : run.outcome === 'ready' ? '' : ' failed'));
+      fill.style.width = percent + '%';
+      track.appendChild(fill);
+      stepper.appendChild(track);
+      const list = makeElement('ol', 'step-list');
+      run.steps.forEach(step => {
+        const item = makeElement('li', 'run-step ' + step.status);
+        const icon = { done: '✓', active: '◌', failed: '✗', skipped: '–', pending: '○' }[step.status];
+        item.appendChild(makeElement('span', 'run-step-icon', icon));
+        item.appendChild(makeElement('span', '', step.label));
+        const elapsed = step.elapsed + (step.startedAt !== null ? now - step.startedAt : 0);
+        const showTime = step.visited && !step.replayed && step.key !== 'ready' && elapsed > 0;
+        item.appendChild(makeElement('span', 'run-step-time', showTime ? formatDuration(elapsed) : ''));
+        list.appendChild(item);
+      });
+      stepper.appendChild(list);
+    }
+
+    function renderHistory() {
+      clear(historySection);
+      const head = makeElement('div', 'card-head');
+      head.appendChild(makeElement('span', 'card-title', 'History'));
+      historySection.appendChild(head);
+      const body = makeElement('div', 'history-body');
+      const files = state.history.files;
+      body.appendChild(makeElement('span', 'history-files', state.history.canUndo
+        ? 'Last apply: ' + files.join(', ')
+        : 'Nothing to undo yet. Applied changes appear here.'));
+      body.appendChild(actionButton('Undo last apply', 'undo-last', 'secondary', {}, !state.history.canUndo));
+      historySection.appendChild(body);
+    }
+
+    function showImpact() {
+      if (state.futures.strategies.length && !state.futures.chosen) {
+        reveal(futuresArea);
+        status.textContent = 'Each future shows its own risk and evidence on its card.';
+        return;
+      }
+      reveal(passportArea);
+      if (!state.passport) status.textContent = 'No change to assess yet. Run a task, then Impact Radar shows its risk and blast radius.';
+    }
+
     function phaseChip(phase) {
       const names = { planning: 'Waiting', implementing: 'Implementing', verifying: 'Verifying', fixing: 'Fixing', probing: 'Probing', done: 'Done', failed: 'Failed' };
       const cls = phase === 'done' ? 'ok' : phase === 'failed' ? 'bad' : phase === 'planning' ? 'muted' : 'info';
       return makeElement('span', 'pill ' + cls, names[phase] || 'Waiting');
     }
 
+    function evidenceRow(list, label, value, tone) {
+      list.appendChild(makeElement('dt', '', label));
+      list.appendChild(makeElement('dd', tone || '', value));
+    }
+
     function renderStrategy(strategy) {
       const futures = state.futures;
       const isChosen = futures.chosen && futures.chosen.futureId === strategy.id;
+      const result = futures.results[strategy.id];
       const card = makeElement('article', 'future-card' + (isChosen ? ' chosen' : ''));
       const title = makeElement('div', 'future-title');
       title.appendChild(makeElement('span', 'future-letter', strategy.id));
       title.appendChild(makeElement('span', '', strategy.title));
+      if (result && result.evidence.status === 'completed') {
+        const risk = riskPill(result.evidence.risk);
+        risk.classList.add('future-head-risk');
+        title.appendChild(risk);
+      }
       card.appendChild(title);
       card.appendChild(makeElement('p', 'future-text', strategy.approach));
       if (strategy.tradeoff) card.appendChild(makeElement('p', 'future-tradeoff', 'Trade-off: ' + strategy.tradeoff));
@@ -342,6 +652,20 @@ export function buildAgentHtml(): string {
       card.appendChild(phaseChip(progress.phase));
       if (progress.phase === 'failed') card.appendChild(makeElement('span', 'future-error', progress.label));
       else if (progress.phase !== 'done' && progress.label) card.appendChild(makeElement('span', 'future-label', progress.label));
+      if (result) {
+        const item = result.evidence;
+        const list = makeElement('dl', 'evidence-list');
+        if (item.tests.ran) evidenceRow(list, 'Tests', (item.tests.passed ? '✓ Pass · ' : '✗ Fail · ') + item.tests.summary, item.tests.passed ? 'good' : 'bad');
+        else evidenceRow(list, 'Tests', 'Not run');
+        evidenceRow(list, 'Files', String(item.filesChanged.length));
+        evidenceRow(list, 'Lines', '+' + item.added + ' / −' + item.removed);
+        evidenceRow(list, 'Fix rounds', String(item.fixRounds));
+        if (item.probe) evidenceRow(list, 'Probe', item.probe.timedOut ? '✗ Timed out' : item.probe.passed ? '✓ OK' : '✗ Failed (exit ' + item.probe.exitCode + ')', item.probe.passed ? 'good' : 'bad');
+        else evidenceRow(list, 'Probe', 'Not run');
+        evidenceRow(list, 'Time', formatDuration(item.durationMs));
+        card.appendChild(list);
+      }
+      if (futures.rows) card.appendChild(futureActions(strategy.id));
       return card;
     }
 
@@ -359,7 +683,7 @@ export function buildAgentHtml(): string {
       if (futures.chosen) {
         if (futures.chosen.futureId === id) actions.appendChild(makeElement('span', 'pill ok', '✓ Chosen'));
       } else {
-        const choose = makeElement('button', '', 'Choose this future');
+        const choose = makeElement('button', 'primary', 'Choose this future');
         choose.type = 'button';
         choose.dataset.action = 'choose-future';
         choose.dataset.futureId = id;
@@ -374,7 +698,7 @@ export function buildAgentHtml(): string {
       const card = makeElement('section', 'card');
       const head = makeElement('div', 'card-head');
       head.appendChild(makeElement('span', 'card-title', 'Compare evidence'));
-      head.appendChild(makeElement('span', 'pill muted', '✓ marks the better value'));
+      head.appendChild(makeElement('span', 'pill muted wide-only', '✓ marks the better value'));
       head.appendChild(actionButton('Compare in editor', 'open-compare', 'secondary narrow-only'));
       card.appendChild(head);
       const scroll = makeElement('div', 'compare-scroll wide-only');
@@ -389,29 +713,13 @@ export function buildAgentHtml(): string {
         tr.appendChild(makeElement('td', row.better === 'B' ? 'better' : '', (row.better === 'B' ? '✓ ' : '') + row.b));
         table.appendChild(tr);
       });
-      const actionRow = makeElement('tr');
-      actionRow.appendChild(makeElement('th', '', ''));
-      ['A', 'B'].forEach(id => {
-        const cell = makeElement('td');
-        cell.appendChild(futureActions(id));
-        actionRow.appendChild(cell);
-      });
-      table.appendChild(actionRow);
       scroll.appendChild(table);
       card.appendChild(scroll);
-      const narrow = makeElement('div', 'compare-narrow narrow-only');
-      ['A', 'B'].forEach(id => {
-        const row = makeElement('div', 'compare-narrow-row');
-        row.appendChild(makeElement('span', 'future-letter', id));
-        row.appendChild(futureActions(id));
-        narrow.appendChild(row);
-      });
-      card.appendChild(narrow);
       ['A', 'B'].forEach(id => {
         const result = futures.results[id];
         if (!result || !result.evidence.probe) return;
-        const details = makeElement('details');
-        details.appendChild(makeElement('summary', 'card-note', 'Future ' + id + ' probe output: ' + result.evidence.probe.command));
+        const details = makeElement('details', 'card-details');
+        details.appendChild(makeElement('summary', '', 'Future ' + id + ' probe output: ' + result.evidence.probe.command));
         details.appendChild(makeElement('pre', 'probe-output', result.evidence.probe.output || '(no output)'));
         card.appendChild(details);
       });
@@ -456,6 +764,10 @@ export function buildAgentHtml(): string {
     function renderFutures() {
       clear(futuresArea);
       const futures = state.futures;
+      // While futures are undecided, each card holds its own evidence; the single-run cards would mislead.
+      const undecided = futures.strategies.length > 0 && !futures.chosen;
+      verifyArea.hidden = undecided;
+      passportArea.hidden = undecided;
       if (!futures.strategies.length) return;
       const section = makeElement('section', 'card');
       const head = makeElement('div', 'card-head');
@@ -499,41 +811,56 @@ export function buildAgentHtml(): string {
     function renderVerification() {
       clear(verifyArea);
       const events = state.verifyEvents;
-      if (!events.length) return;
-      const last = events[events.length - 1];
-      const card = makeElement('section', 'card verify-card ' + last.phase);
-      const head = makeElement('div', 'card-head');
-      head.appendChild(makeElement('span', 'card-title', 'Verify before apply'));
-      const pillClass = last.phase === 'passed' ? 'ok' : last.phase === 'failed' ? 'bad' : last.phase === 'skipped' ? 'muted' : 'info';
-      const pillText = last.phase === 'passed' ? '✓ Verified in sandbox' : last.phase === 'failed' ? '✗ Tests failing' :
-        last.phase === 'skipped' ? 'Not verified' : last.phase === 'fixing' ? 'Agent fixing' : 'Running tests';
-      head.appendChild(makeElement('span', 'pill ' + pillClass, pillText));
+      const last = events.length ? events[events.length - 1] : null;
+      const phase = last ? last.phase : 'idle';
+      const view = {
+        idle: ['–', 'Not verified yet', 'Tests run in a sandbox after the agent proposes changes.'],
+        skipped: ['–', 'Not verified', last && last.summary ? last.summary : 'No test command was available.'],
+        running: ['◌', 'Verifying in sandbox', last ? last.summary : ''],
+        fixing: ['↻', 'Agent is fixing failures', last ? last.summary : ''],
+        passed: ['✓', 'Verified', last ? last.summary : ''],
+        failed: ['✗', 'Tests failing', last ? last.summary : ''],
+      }[phase];
+      const card = makeElement('section', 'card verify-card ' + phase);
+      card.setAttribute('aria-label', 'Verification');
+      const hero = makeElement('div', 'verify-hero');
+      hero.appendChild(makeElement('span', 'verify-mark', view[0]));
+      const text = makeElement('div');
+      text.appendChild(makeElement('span', 'verify-title', view[1]));
+      text.appendChild(makeElement('span', 'verify-sub', view[2]));
       const fixes = events.filter(item => item.phase === 'fixing').length;
-      if (fixes) head.appendChild(makeElement('span', 'pill muted', fixes + ' automatic fix round' + (fixes > 1 ? 's' : '')));
-      card.appendChild(head);
-      const steps = makeElement('ol', 'verify-steps');
-      events.forEach((item, index) => {
-        if (item.phase === 'running' && index < events.length - 1) return;
-        const step = makeElement('li', 'verify-step');
-        const icon = item.phase === 'passed' ? ['ok', '✓'] : item.phase === 'failed' ? ['bad', '✗'] :
-          item.phase === 'fixing' ? ['run', '↻'] : item.phase === 'running' ? ['run', '◌'] : ['', '–'];
-        step.appendChild(makeElement('span', 'step-icon ' + icon[0], icon[1]));
-        const main = makeElement('div', 'step-main');
-        const who = item.source === 'agent' ? 'Agent ran tests' : item.phase === 'fixing' ? 'Voltix sent failures back' : 'Voltix ran tests';
-        main.appendChild(makeElement('span', 'step-text', who + ': ' + (item.summary || '')));
-        if (item.command && item.phase !== 'fixing') {
-          main.appendChild(makeElement('span', 'step-cmd', '$ ' + item.command + (item.durationMs ? '  ·  ' + (item.durationMs / 1000).toFixed(1) + 's' : '')));
-        }
-        if (item.phase === 'failed' && item.output && index === events.length - 1) {
-          const details = makeElement('details');
-          details.appendChild(makeElement('summary', 'step-cmd', 'Show test output'));
-          details.appendChild(makeElement('pre', 'step-output', item.output));
-          main.appendChild(details);
-        }
-        step.appendChild(main);
-        steps.appendChild(step);
-      });
-      card.appendChild(steps);
+      if (fixes) text.appendChild(makeElement('span', 'verify-sub', fixes + ' automatic fix round' + (fixes > 1 ? 's' : '')));
+      hero.appendChild(text);
+      card.appendChild(hero);
+      if (events.length) {
+        const details = makeElement('details', 'card-details');
+        if (phase === 'failed') details.open = true;
+        details.appendChild(makeElement('summary', '', 'Verification details'));
+        const steps = makeElement('ol', 'verify-steps');
+        events.forEach((item, index) => {
+          if (item.phase === 'running' && index < events.length - 1) return;
+          const step = makeElement('li', 'verify-step');
+          const icon = item.phase === 'passed' ? ['ok', '✓'] : item.phase === 'failed' ? ['bad', '✗'] :
+            item.phase === 'fixing' ? ['run', '↻'] : item.phase === 'running' ? ['run', '◌'] : ['', '–'];
+          step.appendChild(makeElement('span', 'step-icon ' + icon[0], icon[1]));
+          const main = makeElement('div', 'step-main');
+          const who = item.source === 'agent' ? 'Agent ran tests' : item.phase === 'fixing' ? 'Voltix sent failures back' : 'Voltix ran tests';
+          main.appendChild(makeElement('span', 'step-text', who + ': ' + (item.summary || '')));
+          if (item.command && item.phase !== 'fixing') {
+            main.appendChild(makeElement('span', 'step-cmd', '$ ' + item.command + (item.durationMs ? '  ·  ' + (item.durationMs / 1000).toFixed(1) + 's' : '')));
+          }
+          if (item.phase === 'failed' && item.output && index === events.length - 1) {
+            const output = makeElement('details');
+            output.appendChild(makeElement('summary', 'step-cmd', 'Show test output'));
+            output.appendChild(makeElement('pre', 'step-output', item.output));
+            main.appendChild(output);
+          }
+          step.appendChild(main);
+          steps.appendChild(step);
+        });
+        details.appendChild(steps);
+        card.appendChild(details);
+      }
       verifyArea.appendChild(card);
     }
 
@@ -545,10 +872,16 @@ export function buildAgentHtml(): string {
     function renderPassport() {
       clear(passportArea);
       const passport = state.passport;
-      if (!passport || !passport.files || !passport.files.length) return;
       const card = makeElement('section', 'card');
+      card.setAttribute('aria-label', 'Change Passport');
       const head = makeElement('div', 'card-head');
       head.appendChild(makeElement('span', 'card-title', 'Change passport'));
+      if (!passport || !passport.files || !passport.files.length) {
+        card.appendChild(head);
+        card.appendChild(makeElement('p', 'card-empty', 'Risk, files and blast radius appear here after a run.'));
+        passportArea.appendChild(card);
+        return;
+      }
       head.appendChild(riskPill(passport.risk));
       const copy = makeElement('button', 'secondary', 'Copy as Markdown');
       copy.type = 'button';
@@ -570,6 +903,9 @@ export function buildAgentHtml(): string {
           passport.verification.passed ? '✓ ' + passport.verification.summary : '✗ ' + passport.verification.summary));
       }
       card.appendChild(stats);
+      const fileDetails = makeElement('details', 'card-details');
+      fileDetails.appendChild(makeElement('summary', '', 'Show ' + totals.files + ' file' + (totals.files === 1 ? '' : 's')));
+      const tableScroll = makeElement('div', 'passport-scroll');
       const table = makeElement('table', 'passport-table');
       const headRow = makeElement('tr');
       ['File', 'Change', 'Risk', 'Notes'].forEach(label => headRow.appendChild(makeElement('th', '', label)));
@@ -596,7 +932,9 @@ export function buildAgentHtml(): string {
         row.appendChild(notes);
         table.appendChild(row);
       });
-      card.appendChild(table);
+      tableScroll.appendChild(table);
+      fileDetails.appendChild(tableScroll);
+      card.appendChild(fileDetails);
       passportArea.appendChild(card);
     }
 
@@ -653,6 +991,7 @@ export function buildAgentHtml(): string {
       exploreButton.disabled = busy;
       exploreStartButton.disabled = busy;
       cancelButton.disabled = !busy;
+      cancelButton.hidden = !busy;
       if (busy) status.textContent = 'Request in progress...';
       updateReviewSummary();
       renderFutures();
@@ -927,6 +1266,9 @@ export function buildAgentHtml(): string {
     function renderReceipt(receipt) {
       clear(receiptBody);
       const items = Array.isArray(receipt.items) ? receipt.items : [];
+      const fileCount = new Set(items.map(item => item.path)).size;
+      contextSummary.textContent = fileCount + ' file' + (fileCount === 1 ? '' : 's') + ' · ~' + (receipt.totalTokens || 0).toLocaleString() + ' tokens';
+      contextView.disabled = false;
       receiptCount.textContent = items.length ? '(' + items.length + ' selected)' : '(no files selected)';
       const summaryParts = [
         items.length + ' selected',
@@ -1049,6 +1391,14 @@ export function buildAgentHtml(): string {
 
     exploreButton.addEventListener('click', () => setFuturesMode(probeRow.hidden));
     exploreBackButton.addEventListener('click', () => setFuturesMode(false));
+    document.getElementById('show-risks').addEventListener('click', showImpact);
+    contextView.addEventListener('click', () => {
+      const show = receiptSection.hidden;
+      receiptSection.hidden = !show;
+      receiptSection.open = show;
+      contextView.textContent = show ? 'Hide' : 'View';
+      if (show) reveal(receiptSection);
+    });
     document.getElementById('open-editor').addEventListener('click', () => vscode.postMessage({ type: 'open_in_editor' }));
     exploreStartButton.addEventListener('click', startExplore);
     probeInput.addEventListener('keydown', event => {
@@ -1112,6 +1462,9 @@ export function buildAgentHtml(): string {
       state.verifyEvents = [];
       state.passport = null;
       state.futures = emptyFutures();
+      stopRunTimer();
+      state.run = null;
+      renderStepper();
       renderFutures();
       renderVerification();
       renderPassport();
@@ -1119,6 +1472,8 @@ export function buildAgentHtml(): string {
     }
 
     function startRun(mode) {
+      startStepper(mode);
+      activitySection.open = true;
       clear(errorArea);
       clear(resultArea);
       output.textContent = '';
@@ -1164,6 +1519,20 @@ export function buildAgentHtml(): string {
         clear(errorArea);
       } else if (action === 'copy-passport') {
         vscode.postMessage({ type: 'copy_passport' });
+      } else if (action === 'mode-agent') {
+        setFuturesMode(false);
+        input.focus();
+      } else if (action === 'mode-futures') {
+        setFuturesMode(true);
+        if (state.futures.strategies.length) reveal(futuresArea);
+      } else if (action === 'mode-impact') {
+        showImpact();
+      } else if (action === 'mode-history') {
+        historySection.hidden = !historySection.hidden;
+        renderHistory();
+        if (!historySection.hidden) reveal(historySection);
+      } else if (action === 'undo-last') {
+        vscode.postMessage({ type: 'undo_last' });
       } else if (action === 'open-diff' && changeId) {
         vscode.postMessage({ type: 'open_diff', changeId, futureId: target.dataset.futureId || undefined });
       } else if (action === 'open-compare') {
@@ -1222,6 +1591,12 @@ export function buildAgentHtml(): string {
     window.addEventListener('message', event => {
       const message = event.data;
       if (!message || typeof message.type !== 'string') return;
+      if (message.type === 'replay_boundary') {
+        state.replaying = message.phase === 'start';
+        if (!state.replaying && state.run && !state.run.finished && !state.runTimer) state.runTimer = setInterval(renderStepper, 1000);
+        return;
+      }
+      trackRun(message);
       if (message.type === 'text_delta') {
         if (output.textContent === 'The agent response will appear here.') output.textContent = '';
         output.textContent += message.content || '';
@@ -1289,10 +1664,9 @@ export function buildAgentHtml(): string {
             last.phase === 'failed' ? 'Done · tests still failing — review carefully before applying.' : 'Turn complete.';
         }
       } else if (message.type === 'model_info') {
-        modelBadge.hidden = false;
-        modelBadge.textContent = message.model + (message.fallbackFrom ? '  ·  fallback from ' + message.fallbackFrom : '');
-        modelBadge.className = 'model-badge' + (message.fallbackFrom ? ' fallback' : '');
-        modelBadge.title = message.fallbackFrom ? 'Automatic fallback: ' + message.fallbackFrom + ' failed' : 'Model answering this request';
+        modelName.textContent = message.model;
+        modelCard.classList.toggle('warning', Boolean(message.fallbackFrom));
+        modelNote.textContent = message.fallbackFrom ? '⚠ Fallback: ' + message.fallbackFrom + ' failed' : 'Selected model';
       } else if (message.type === 'verification') {
         const last = state.verifyEvents[state.verifyEvents.length - 1];
         if (last && last.phase === 'running' && message.phase !== 'fixing') state.verifyEvents.pop();
@@ -1343,12 +1717,16 @@ export function buildAgentHtml(): string {
         resetReview();
       } else if (message.type === 'history_state') {
         state.history = { canUndo: Boolean(message.canUndo), files: message.files || [] };
+        renderHistory();
       } else if (message.type === 'focus_section' && message.section === 'futures') {
-        futuresArea.scrollIntoView({ block: 'start' });
+        reveal(futuresArea);
       }
     });
 
     cancelButton.disabled = true;
+    renderVerification();
+    renderPassport();
+    renderHistory();
     updateReviewSummary();
     vscode.postMessage({ type: 'panel_ready' });
   </script>
