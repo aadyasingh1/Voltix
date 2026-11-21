@@ -166,7 +166,36 @@ export class AgentPanel {
     .passport-flag.medium{color:var(--vscode-editorWarning-foreground,#cca700)}
     .num-add{color:var(--vscode-testing-iconPassed,#3fb950)}
     .num-del{color:var(--vscode-errorForeground,#f85149)}
-    @media(max-width:640px){.review-layout{grid-template-columns:1fr}.review-heading{align-items:flex-start;flex-wrap:wrap}}
+    #probe-row{margin:0 0 12px;padding:10px 12px;border:1px solid var(--tf-border);border-radius:var(--tf-radius);background:var(--tf-card)}
+    #probe-row[hidden]{display:none}
+    #probe{display:block;width:100%;margin:0 0 6px;padding:6px 10px;color:var(--vscode-input-foreground);background:var(--vscode-input-background);border:1px solid var(--vscode-input-border,var(--tf-border));border-radius:6px;font-family:var(--vscode-editor-font-family);font-size:12px}
+    #probe:focus{border-color:var(--vscode-focusBorder);outline:none}
+    .field-hint{margin:0 0 10px;color:var(--tf-muted);font-size:11.5px}
+    #probe-row .toolbar{margin-bottom:0}
+    .card-note{margin:0;padding:8px 12px;color:var(--tf-muted);font-size:12px;border-bottom:1px solid var(--tf-border)}
+    .future-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:10px 12px}
+    .future-card{min-width:0;padding:10px 12px;border:1px solid var(--tf-border);border-radius:6px;background:var(--vscode-editor-background)}
+    .future-card.chosen{border-color:var(--tf-accent);box-shadow:inset 3px 0 0 var(--tf-accent)}
+    .future-title{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:6px;font-weight:600}
+    .future-letter{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;font-size:11px;font-weight:700;color:var(--vscode-badge-foreground);background:var(--vscode-badge-background)}
+    .future-text{margin:0 0 6px;overflow-wrap:anywhere}
+    .future-tradeoff{margin:0 0 8px;color:var(--tf-muted);font-size:12px;overflow-wrap:anywhere}
+    .future-label{display:block;margin-top:4px;color:var(--tf-muted);font-size:11.5px;overflow-wrap:anywhere}
+    .future-error{display:block;margin-top:4px;color:var(--vscode-errorForeground);font-size:11.5px;overflow-wrap:anywhere}
+    .compare-scroll{overflow-x:auto}
+    .compare-table{width:100%;border-collapse:collapse;font-size:12px}
+    .compare-table th,.compare-table td{padding:7px 12px;text-align:left;vertical-align:top;border-bottom:1px solid var(--tf-border);overflow-wrap:anywhere}
+    .compare-table th{font-size:11px;font-weight:600;color:var(--tf-muted)}
+    .compare-table tr:last-child td{border-bottom:none}
+    .compare-table td.better{font-weight:600;color:var(--vscode-testing-iconPassed,#3fb950);background:var(--vscode-diffEditor-insertedLineBackground,rgba(46,160,67,.12))}
+    .compare-actions{display:flex;flex-wrap:wrap;gap:6px}
+    .probe-output{margin:0;padding:8px 12px;max-height:180px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font-family:var(--vscode-editor-font-family);font-size:11.5px;border-top:1px solid var(--tf-border)}
+    .future-files{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px}
+    .future-files .file-nav{width:auto}
+    .future-diff{border-top:1px solid var(--tf-border);overflow:auto;max-height:520px}
+    .future-diff .review-header{position:static}
+    @media(max-width:640px){.review-layout{grid-template-columns:1fr}.review-heading{align-items:flex-start;flex-wrap:wrap}.future-grid{grid-template-columns:1fr}}
+    @media(prefers-reduced-motion:reduce){.step-icon.run{animation:none}}
   </style>
 </head>
 <body>
@@ -176,15 +205,26 @@ export class AgentPanel {
     <textarea id="input" placeholder="Describe a task..." rows="3"></textarea>
     <div class="toolbar">
       <button id="submit" type="submit">Send</button>
+      <button id="explore" class="secondary" type="button" aria-expanded="false" aria-controls="probe-row">Explore futures</button>
       <button id="cancel" class="secondary" type="button">Cancel</button>
       <button id="apply" type="button" disabled>Apply Accepted</button>
       <button id="discard" class="danger" type="button">Discard All</button>
+    </div>
+    <div id="probe-row" hidden>
+      <label for="probe">Probe command (optional)</label>
+      <input id="probe" type="text" spellcheck="false" autocomplete="off" placeholder="flask --app /tmp/hello.py config">
+      <p class="field-hint">Runs in each future's sandbox. Allowed: python, flask, node, pytest, npm test, npm run. No pipes or chaining.</p>
+      <div class="toolbar">
+        <button id="explore-start" type="button">Start exploring</button>
+        <button id="explore-back" class="secondary" type="button">Back</button>
+      </div>
     </div>
   </form>
   <div class="meta-row"><span id="model-badge" class="model-badge" hidden></span></div>
   <div id="status" role="status" aria-live="polite"></div>
   <div id="error-area" aria-live="assertive"></div>
   <div id="result-area" aria-live="polite"></div>
+  <div id="futures-area"></div>
   <details id="receipt" class="panel-section">
     <summary>Context Receipt <span id="receipt-count"></span></summary>
     <div id="receipt-body" class="receipt-body"><p class="receipt-summary">No context receipt for this request yet.</p></div>
@@ -247,8 +287,190 @@ export class AgentPanel {
     const modelBadge = document.getElementById('model-badge');
     const verifyArea = document.getElementById('verify-area');
     const passportArea = document.getElementById('passport-area');
+    const exploreButton = document.getElementById('explore');
+    const exploreStartButton = document.getElementById('explore-start');
+    const exploreBackButton = document.getElementById('explore-back');
+    const probeRow = document.getElementById('probe-row');
+    const probeInput = document.getElementById('probe');
+    const futuresArea = document.getElementById('futures-area');
     state.verifyEvents = [];
     state.passport = null;
+    state.futures = emptyFutures();
+
+    function emptyFutures() {
+      return { strategies: [], usedFallback: false, phases: {}, results: {}, rows: null, viewing: null, viewFileIndex: 0, chosen: null };
+    }
+
+    function setFuturesMode(open) {
+      probeRow.hidden = !open;
+      exploreButton.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (open) probeInput.focus();
+    }
+
+    function phaseChip(phase) {
+      const names = { planning: 'Waiting', implementing: 'Implementing', verifying: 'Verifying', fixing: 'Fixing', probing: 'Probing', done: 'Done', failed: 'Failed' };
+      const cls = phase === 'done' ? 'ok' : phase === 'failed' ? 'bad' : phase === 'planning' ? 'muted' : 'info';
+      return makeElement('span', 'pill ' + cls, names[phase] || 'Waiting');
+    }
+
+    function renderStrategy(strategy) {
+      const futures = state.futures;
+      const isChosen = futures.chosen && futures.chosen.futureId === strategy.id;
+      const card = makeElement('article', 'future-card' + (isChosen ? ' chosen' : ''));
+      const title = makeElement('div', 'future-title');
+      title.appendChild(makeElement('span', 'future-letter', strategy.id));
+      title.appendChild(makeElement('span', '', strategy.title));
+      card.appendChild(title);
+      card.appendChild(makeElement('p', 'future-text', strategy.approach));
+      if (strategy.tradeoff) card.appendChild(makeElement('p', 'future-tradeoff', 'Trade-off: ' + strategy.tradeoff));
+      const progress = futures.phases[strategy.id] || { phase: 'planning', label: 'Waiting' };
+      card.appendChild(phaseChip(progress.phase));
+      if (progress.phase === 'failed') card.appendChild(makeElement('span', 'future-error', progress.label));
+      else if (progress.phase !== 'done' && progress.label) card.appendChild(makeElement('span', 'future-label', progress.label));
+      return card;
+    }
+
+    function futureActions(id) {
+      const futures = state.futures;
+      const result = futures.results[id];
+      const usable = Boolean(result && result.evidence.status === 'completed' && result.changes.length);
+      const actions = makeElement('div', 'compare-actions');
+      const view = makeElement('button', 'secondary', futures.viewing === id ? 'Hide diff' : 'View diff');
+      view.type = 'button';
+      view.dataset.action = 'view-future';
+      view.dataset.futureId = id;
+      view.disabled = !(result && result.changes.length);
+      actions.appendChild(view);
+      if (futures.chosen) {
+        if (futures.chosen.futureId === id) actions.appendChild(makeElement('span', 'pill ok', '✓ Chosen'));
+      } else {
+        const choose = makeElement('button', '', 'Choose this future');
+        choose.type = 'button';
+        choose.dataset.action = 'choose-future';
+        choose.dataset.futureId = id;
+        choose.disabled = state.busy || !usable;
+        actions.appendChild(choose);
+      }
+      return actions;
+    }
+
+    function renderComparison() {
+      const futures = state.futures;
+      const card = makeElement('section', 'card');
+      const head = makeElement('div', 'card-head');
+      head.appendChild(makeElement('span', 'card-title', 'Compare evidence'));
+      head.appendChild(makeElement('span', 'pill muted', '✓ marks the better value'));
+      card.appendChild(head);
+      const scroll = makeElement('div', 'compare-scroll');
+      const table = makeElement('table', 'compare-table');
+      const headRow = makeElement('tr');
+      ['', 'Future A', 'Future B'].forEach(label => headRow.appendChild(makeElement('th', '', label)));
+      table.appendChild(headRow);
+      futures.rows.forEach(row => {
+        const tr = makeElement('tr');
+        tr.appendChild(makeElement('th', '', row.label));
+        tr.appendChild(makeElement('td', row.better === 'A' ? 'better' : '', (row.better === 'A' ? '✓ ' : '') + row.a));
+        tr.appendChild(makeElement('td', row.better === 'B' ? 'better' : '', (row.better === 'B' ? '✓ ' : '') + row.b));
+        table.appendChild(tr);
+      });
+      const actionRow = makeElement('tr');
+      actionRow.appendChild(makeElement('th', '', ''));
+      ['A', 'B'].forEach(id => {
+        const cell = makeElement('td');
+        cell.appendChild(futureActions(id));
+        actionRow.appendChild(cell);
+      });
+      table.appendChild(actionRow);
+      scroll.appendChild(table);
+      card.appendChild(scroll);
+      ['A', 'B'].forEach(id => {
+        const result = futures.results[id];
+        if (!result || !result.evidence.probe) return;
+        const details = makeElement('details');
+        details.appendChild(makeElement('summary', 'card-note', 'Future ' + id + ' probe output: ' + result.evidence.probe.command));
+        details.appendChild(makeElement('pre', 'probe-output', result.evidence.probe.output || '(no output)'));
+        card.appendChild(details);
+      });
+      return card;
+    }
+
+    function renderFutureDiff() {
+      const futures = state.futures;
+      const result = futures.results[futures.viewing];
+      if (!result || !result.changes.length) return null;
+      const card = makeElement('section', 'card');
+      const head = makeElement('div', 'card-head');
+      head.appendChild(makeElement('span', 'card-title', 'Future ' + futures.viewing + ' diff'));
+      head.appendChild(makeElement('span', 'pill muted', 'Read-only'));
+      card.appendChild(head);
+      const files = makeElement('div', 'future-files');
+      const index = Math.min(futures.viewFileIndex, result.changes.length - 1);
+      result.changes.forEach((change, fileIndex) => {
+        const button = makeElement('button', 'file-nav', change.path);
+        button.type = 'button';
+        button.dataset.action = 'future-file';
+        button.dataset.index = String(fileIndex);
+        button.setAttribute('aria-current', fileIndex === index ? 'true' : 'false');
+        files.appendChild(button);
+      });
+      card.appendChild(files);
+      const change = result.changes[index];
+      const container = makeElement('div', 'future-diff');
+      const header = makeElement('div', 'review-header');
+      header.appendChild(makeElement('p', 'review-reason', change.reason || 'No change summary provided.'));
+      header.appendChild(makeElement('div', 'review-meta'));
+      container.appendChild(header);
+      renderDiff(change, container, true);
+      card.appendChild(container);
+      return card;
+    }
+
+    function renderFutures() {
+      clear(futuresArea);
+      const futures = state.futures;
+      if (!futures.strategies.length) return;
+      const section = makeElement('section', 'card');
+      const head = makeElement('div', 'card-head');
+      head.appendChild(makeElement('span', 'card-title', 'Parallel futures'));
+      if (futures.chosen) {
+        head.appendChild(makeElement('span', 'pill ok', 'Chose Future ' + futures.chosen.futureId + ' over ' + futures.chosen.otherId));
+      }
+      section.appendChild(head);
+      if (futures.usedFallback) {
+        section.appendChild(makeElement('p', 'card-note', 'The model did not return a usable plan, so Voltix used two default strategies.'));
+      }
+      const grid = makeElement('div', 'future-grid');
+      futures.strategies.forEach(strategy => grid.appendChild(renderStrategy(strategy)));
+      section.appendChild(grid);
+      futuresArea.appendChild(section);
+      if (futures.rows) futuresArea.appendChild(renderComparison());
+      if (futures.viewing) {
+        const diff = renderFutureDiff();
+        if (diff) futuresArea.appendChild(diff);
+      }
+    }
+
+    function startExplore() {
+      if (state.busy) return;
+      const text = input.value;
+      if (!text.trim()) {
+        showError('Describe a task before exploring futures.', true);
+        input.focus();
+        return;
+      }
+      state.lastSubmittedText = text;
+      clear(errorArea);
+      clear(resultArea);
+      state.activities = [];
+      renderActivity();
+      state.futures = emptyFutures();
+      renderFutures();
+      setFuturesMode(false);
+      setBusy(true);
+      status.textContent = 'Planning two different strategies...';
+      vscode.postMessage({ type: 'explore_futures', text, probeCommand: probeInput.value });
+      input.value = '';
+    }
 
     function renderVerification() {
       clear(verifyArea);
@@ -395,9 +617,12 @@ export class AgentPanel {
     function setBusy(busy) {
       state.busy = busy;
       submitButton.disabled = busy;
+      exploreButton.disabled = busy;
+      exploreStartButton.disabled = busy;
       cancelButton.disabled = !busy;
       if (busy) status.textContent = 'Request in progress...';
       updateReviewSummary();
+      renderFutures();
     }
 
     function changeState(change) {
@@ -544,7 +769,7 @@ export class AgentPanel {
       return rows;
     }
 
-    function renderDiff(change, container) {
+    function renderDiff(change, container, readOnly) {
       const rows = diffRows(change);
       const added = rows.filter(row => row.type === 'add').length;
       const removed = rows.filter(row => row.type === 'remove').length;
@@ -585,7 +810,7 @@ export class AgentPanel {
         diff.appendChild(control);
       };
       const appendHunkControlForRow = row => {
-        if (row.hunkId && row.hunkId !== renderedHunkId) appendHunkControl(row.hunkId);
+        if (!readOnly && row.hunkId && row.hunkId !== renderedHunkId) appendHunkControl(row.hunkId);
         renderedHunkId = row.hunkId || null;
       };
       if (state.diffMode === 'side-by-side') {
@@ -787,6 +1012,16 @@ export class AgentPanel {
       input.value = '';
     });
 
+    exploreButton.addEventListener('click', () => setFuturesMode(probeRow.hidden));
+    exploreBackButton.addEventListener('click', () => setFuturesMode(false));
+    exploreStartButton.addEventListener('click', startExplore);
+    probeInput.addEventListener('keydown', event => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        startExplore();
+      }
+    });
+
     cancelButton.addEventListener('click', () => {
       if (!state.busy) return;
       status.textContent = 'Cancellation requested; waiting for the agent response.';
@@ -836,6 +1071,8 @@ export class AgentPanel {
       clear(resultArea);
       state.verifyEvents = [];
       state.passport = null;
+      state.futures = emptyFutures();
+      renderFutures();
       renderVerification();
       renderPassport();
       updateReviewSummary();
@@ -850,12 +1087,24 @@ export class AgentPanel {
         clear(errorArea);
       } else if (action === 'copy-passport') {
         vscode.postMessage({ type: 'copy_passport' });
+      } else if (action === 'view-future') {
+        state.futures.viewing = state.futures.viewing === target.dataset.futureId ? null : target.dataset.futureId;
+        state.futures.viewFileIndex = 0;
+        renderFutures();
+      } else if (action === 'future-file') {
+        state.futures.viewFileIndex = Number(target.dataset.index) || 0;
+        renderFutures();
+      } else if (action === 'choose-future') {
+        if (state.busy || state.futures.chosen) return;
+        clear(errorArea);
+        vscode.postMessage({ type: 'choose_future', futureId: target.dataset.futureId });
       } else if (action === 'select-file' && changeId) {
         state.selectedId = changeId;
         renderFileList();
       } else if (action === 'toggle-diff') {
         state.diffMode = state.diffMode === 'side-by-side' ? 'unified' : 'side-by-side';
         renderSelectedChange();
+        renderFutures();
       } else if (action === 'accept-file' && changeId) {
         state.decisions.set(changeId, 'accept');
         const change = state.changes.find(item => item.id === changeId);
@@ -971,11 +1220,43 @@ export class AgentPanel {
       } else if (message.type === 'passport') {
         state.passport = message.passport || null;
         renderPassport();
+      } else if (message.type === 'futures_config') {
+        if (!probeInput.value) probeInput.value = message.probeCommand || '';
+      } else if (message.type === 'futures_plan') {
+        state.futures = emptyFutures();
+        state.futures.strategies = message.strategies || [];
+        state.futures.usedFallback = Boolean(message.usedFallback);
+        state.verifyEvents = [];
+        state.passport = null;
+        renderVerification();
+        renderPassport();
+        output.textContent = 'Voltix is building each strategy in its own isolated future. Your files are not being changed.';
+        renderFutures();
+      } else if (message.type === 'future_progress') {
+        state.futures.phases[message.futureId] = { phase: message.phase, label: message.label };
+        renderFutures();
+      } else if (message.type === 'future_result') {
+        state.futures.results[message.futureId] = { evidence: message.evidence, passport: message.passport, changes: message.changes || [] };
+        renderFutures();
+      } else if (message.type === 'futures_compare') {
+        state.futures.rows = message.rows || [];
+        output.textContent = 'Both futures are ready. Compare the evidence, then choose one.';
+        status.textContent = 'Compare the evidence, then choose a future.';
+        renderFutures();
+      } else if (message.type === 'futures_chosen') {
+        state.futures.chosen = { futureId: message.futureId, otherId: message.otherId };
+        output.textContent = 'Future ' + message.futureId + ' moved to Proposed files. Nothing is written until you accept and apply it.';
+        status.textContent = 'Chose Future ' + message.futureId + ' over ' + message.otherId + '. Review its changes below.';
+        renderFutures();
+      } else if (message.type === 'futures_cleared') {
+        state.futures = emptyFutures();
+        renderFutures();
       }
     });
 
     cancelButton.disabled = true;
     updateReviewSummary();
+    vscode.postMessage({ type: 'panel_ready' });
   </script>
 </body>
 </html>`;
