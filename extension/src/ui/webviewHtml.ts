@@ -54,6 +54,8 @@ export function buildAgentHtml(): string {
     .activity-item::before{content:"";position:absolute;left:12px;top:15px;width:7px;height:7px;border-radius:50%;background:var(--tf-accent)}
     .activity-title{font-weight:600;font-family:var(--vscode-editor-font-family);color:var(--vscode-textLink-foreground)}
     .activity-status,.activity-preview{color:var(--tf-muted);margin:3px 0 0}
+    .activity-raw{margin-top:4px;color:var(--tf-muted);font-size:11px}
+    .activity-raw summary{cursor:pointer}
     .activity-preview{white-space:pre-wrap;overflow-wrap:anywhere;font-size:11.5px;max-height:120px;overflow:hidden;-webkit-mask-image:linear-gradient(#000 75%,transparent)}
     #activity-heading{padding:10px 12px;margin:0}
     .review-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:20px 0 10px}
@@ -1011,16 +1013,24 @@ export function buildAgentHtml(): string {
       }
       state.activities.forEach(activity => {
         const item = makeElement('li', 'activity-item');
-        item.appendChild(makeElement('div', 'activity-title', activity.name));
-        item.appendChild(makeElement('p', 'activity-status', activity.status));
-        if (activity.argsPreview) {
-          item.appendChild(makeElement('pre', 'activity-preview', 'Arguments: ' + activity.argsPreview));
-        }
-        if (activity.resultPreview) {
-          item.appendChild(makeElement('pre', 'activity-preview', 'Result preview: ' + activity.resultPreview));
+        item.appendChild(makeElement('div', 'activity-title', activity.summary || activity.name + ' → ' + activity.status));
+        if (activity.argsPreview || activity.resultPreview) {
+          const raw = makeElement('details', 'activity-raw');
+          raw.appendChild(makeElement('summary', '', 'Raw preview'));
+          if (activity.argsPreview) raw.appendChild(makeElement('pre', 'activity-preview', 'Arguments: ' + activity.argsPreview));
+          if (activity.resultPreview) raw.appendChild(makeElement('pre', 'activity-preview', 'Result preview: ' + activity.resultPreview));
+          item.appendChild(raw);
         }
         activityList.appendChild(item);
       });
+    }
+
+    function toolStartSummary(name, argsPreview) {
+      let args = {};
+      try { args = JSON.parse(argsPreview || '{}'); } catch (_) {}
+      const path = args.path ? ' ' + args.path : '';
+      if (name === 'search_workspace') return name + " '" + String(args.query || '').replace(/\s+/g, ' ') + "' → running";
+      return name + path + ' → running';
     }
 
     function updateActivity(activity) {
@@ -1678,6 +1688,7 @@ export function buildAgentHtml(): string {
         updateActivity({
           id: message.id,
           name: message.name || 'Tool request',
+          summary: toolStartSummary(message.name || 'Tool request', message.argsPreview || ''),
           status: message.status === 'approval_required' ? 'Approval required' : 'Tool request observed',
           argsPreview: message.argsPreview || '',
         });
@@ -1685,6 +1696,7 @@ export function buildAgentHtml(): string {
         updateActivity({
           id: message.id,
           name: message.name || state.activities.find(item => item.id === message.id)?.name || 'Tool response',
+          summary: message.summary || state.activities.find(item => item.id === message.id)?.summary || (message.name || 'Tool response') + ' → completed',
           status: message.isError === true ? 'Tool reported an error' :
             message.isError === false ? 'Explicit tool success result received' :
             'Tool response received; success or failure not provided',

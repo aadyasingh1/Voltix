@@ -137,7 +137,7 @@ export type PanelOutboundMessage =
   | { type: 'text_delta'; content: string }
   | { type: 'text_done'; fullContent: string }
   | { type: 'tool_start'; id: string; name: string; argsPreview: string; status?: 'requested' | 'approval_required' }
-  | { type: 'tool_done'; id: string; name?: string; resultPreview: string; isError?: boolean }
+  | { type: 'tool_done'; id: string; name?: string; summary?: string; resultPreview: string; isError?: boolean }
   | { type: 'context_receipt'; receipt: ContextReceipt }
   | { type: 'pending_change'; change: PendingChange }
   | { type: 'change_removed'; changeId: string }

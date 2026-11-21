@@ -1,5 +1,5 @@
 import type { TrueForge } from '@truefoundry/trueforge-sdk';
-import { processTurn } from '../../src/agent/streamProcessor';
+import { formatToolSummary, processTurn } from '../../src/agent/streamProcessor';
 import type { PanelOutboundMessage } from '../../../shared/types';
 
 function fakeClient(events: unknown[]) {
@@ -75,9 +75,19 @@ test('emits observed tool requests and results without claiming an unknown error
     type: 'tool_done',
     id: 'tool-1',
     name: 'read_file',
+    summary: 'read_file src/app.ts → lines 1-1 of 1',
     resultPreview: 'source contents',
   });
   expect(messages).toContainEqual({ type: 'turn_done', status: 'done' });
+});
+
+test('formats concise summaries for search, edits, and verification', () => {
+  expect(formatToolSummary('search_workspace', '{"query":"def routes"}', 'a.py:1\nb.py:2'))
+    .toBe("search_workspace 'def routes' → 2 matches");
+  expect(formatToolSummary('edit_file', '{"path":"src/app.py","old_string":"old\\n","new_string":"new\\nmore\\n"}', 'Edit registered for review (not written to disk yet).'))
+    .toBe('edit_file src/app.py → +2 −1 (proposal, nothing on disk)');
+  expect(formatToolSummary('verify_changes', '{}', 'PASSED: 60 passed in 1.2s\nCommand: pytest'))
+    .toBe('verify_changes → 60 passed in 1.2s');
 });
 
 test('reports an unexpected stream end instead of inventing a successful completion', async () => {

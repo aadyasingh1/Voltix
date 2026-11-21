@@ -1,4 +1,5 @@
 import type { TrueForge } from '@truefoundry/trueforge-sdk';
+import { diffLines } from 'diff';
 import type { PanelOutboundMessage } from '../../../shared/types';
 
 export interface TurnResult {
@@ -16,6 +17,50 @@ function safePreview(value: string, limit: number): string {
   return value
     .replace(/((?:password|secret|token|api[_-]?key)\s*[=:]\s*)(?:"[^"]*"|'[^']*'|\S+)/gi, '$1[REDACTED]')
     .slice(0, limit);
+}
+
+function safeSummaryValue(value: unknown): string {
+  return safePreview(String(value ?? '').replace(/\s+/g, ' ').trim(), 200);
+}
+
+export function formatToolSummary(name: string, argumentsText: string, result: string): string {
+  let args: Record<string, unknown> = {};
+  try {
+    const parsed: unknown = JSON.parse(argumentsText);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) args = parsed as Record<string, unknown>;
+  } catch {
+    return `${name} → completed`;
+  }
+  if (name === 'read_file') {
+    const file = safeSummaryValue(args.path);
+    const range = result.match(/\[Showing lines (\d+)-(\d+) of (\d+)\./);
+    if (range) return `read_file ${file} → lines ${range[1]}-${range[2]} of ${range[3]}`;
+    const onlyLines = result.match(/\[File has only (\d+) lines\.\]/);
+    if (onlyLines) return `read_file ${file} → file has ${onlyLines[1]} lines`;
+    const start = Number(args.start_line) || 1;
+    const end = Number(args.end_line) || result.split(/\r?\n/).length;
+    return `read_file ${file} → lines ${start}-${end} of ${end}`;
+  }
+  if (name === 'search_workspace') {
+    const query = safeSummaryValue(args.query);
+    const count = result.trim() === 'No matches' ? 0 : result.split(/\r?\n/).length;
+    return `search_workspace '${query}' → ${count} ${count === 1 ? 'match' : 'matches'}`;
+  }
+  if (name === 'edit_file') {
+    const file = safeSummaryValue(args.path);
+    if (!result.includes('registered for review')) return `edit_file ${file} → ${safeSummaryValue(result)}`;
+    const changes = diffLines(String(args.old_string ?? ''), String(args.new_string ?? ''));
+    const countLines = (text: string) => text.split(/\r?\n/).filter((line, index, lines) => line.length > 0 || index < lines.length - 1).length;
+    const added = changes.filter(part => part.added).reduce((sum, part) => sum + countLines(part.value), 0);
+    const removed = changes.filter(part => part.removed).reduce((sum, part) => sum + countLines(part.value), 0);
+    return `edit_file ${file} → +${added} −${removed} (proposal, nothing on disk)`;
+  }
+  if (name === 'verify_changes') {
+    const firstLine = result.split(/\r?\n/, 1)[0].replace(/^(PASSED|FAILED):\s*/, '');
+    return `verify_changes → ${safeSummaryValue(firstLine)}`;
+  }
+  const detail = args.path ?? args.query ?? args.command;
+  return `${name}${detail === undefined ? '' : ` ${safeSummaryValue(detail)}`} → completed`;
 }
 
 export async function processTurn(
@@ -92,6 +137,7 @@ export async function processTurn(
         type: 'tool_done',
         id: event.toolCallId,
         name: call?.name,
+        summary: call ? formatToolSummary(call.name, call.arguments, event.content) : undefined,
         resultPreview: safePreview(event.content, 500),
       });
     } else if (event.type === 'turn.done') {
