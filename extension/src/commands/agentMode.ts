@@ -188,7 +188,6 @@ export class AgentMode {
         approval: { status: 'allow' },
       }],
     });
-    this.surface.post({ type: 'approval_decision', toolCallId: approval.toolCallId, decision: 'allow' });
     if (rejectedFiles.length) {
       const note = 'The user rejected hunks in these files: ' + [...new Set(rejectedFiles)].join(', ') +
         '. Do not re-propose those rejected hunks; continue only with the accepted changes.';
@@ -197,7 +196,7 @@ export class AgentMode {
     this.pendingApproval = undefined;
   }
 
-  async denySubmittedChanges(reason = 'User rejected changes'): Promise<void> {
+  async denySubmittedChanges(reason = 'User rejected the changes'): Promise<void> {
     if (!this.client || !this.sessionId || !this.pendingApproval) return;
     const approval = this.pendingApproval;
     await this.client.sessions.createTurnEvents(this.sessionId, approval.turnId, {
@@ -208,7 +207,6 @@ export class AgentMode {
         approval: { status: 'deny', reason },
       }],
     });
-    this.surface.post({ type: 'approval_decision', toolCallId: approval.toolCallId, decision: 'deny', reason });
     this.pendingApproval = undefined;
   }
 

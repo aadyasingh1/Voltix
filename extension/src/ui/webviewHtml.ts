@@ -1926,6 +1926,8 @@ export function buildAgentHtml(): string {
         state.pendingApproval = { toolCallId: message.toolCallId, summary: message.summary };
         approvalBanner.hidden = false;
         approvalBanner.textContent = 'TrueForge is waiting for your review';
+        reviewSection.hidden = false;
+        if (reviewSection.scrollIntoView) reviewSection.scrollIntoView({ block: 'start' });
         updateActivity({ id: 'approval-' + message.toolCallId, name: 'submit_changes', summary: 'Approval required: ' + message.summary, status: 'Waiting for review' });
       } else if (message.type === 'approval_decision') {
         approvalBanner.hidden = true;
