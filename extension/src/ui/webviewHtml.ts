@@ -215,6 +215,15 @@ export function buildAgentHtml(): string {
     .recent-runs h2{margin:10px 0 4px;font-size:13px;color:var(--vscode-foreground)}
     .recent-run-list{display:flex;flex-direction:column;gap:4px;margin:0;padding:0;list-style:none}
     .recent-run{min-width:0;padding:6px 8px;border:1px solid var(--vx-line);border-radius:8px;overflow-wrap:anywhere}
+    .how-it-works{margin:12px 0 0}
+    .how-it-works h2{margin:0 0 12px;font-size:13px;font-weight:600;color:var(--vscode-foreground)}
+    .how-row{display:flex;align-items:flex-start;gap:10px}
+    .how-row+.how-row{margin-top:12px}
+    .how-row>*{min-width:0}
+    .how-number{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;flex:none;border:1px solid var(--vx-line);border-radius:50%;color:var(--vx-violet-text);font-size:11px;line-height:20px}
+    .how-copy{display:flex;flex-direction:column;min-width:0}
+    .how-title{font-size:13px;font-weight:600;line-height:20px}
+    .how-description{color:var(--vscode-descriptionForeground);font-size:12px;line-height:18px;overflow-wrap:anywhere}
     .mode-text{display:flex;flex-direction:column;min-width:0}
     .mode-name{font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .mode-sub{display:none}
@@ -1143,7 +1152,10 @@ export function buildAgentHtml(): string {
       verifyArea.hidden = !state.runStarted;
       passportArea.hidden = !state.runStarted;
       const recentRuns = document.getElementById('recent-runs');
-      if (recentRuns) recentRuns.hidden = state.runStarted;
+      if (recentRuns) {
+        renderRecentRuns(state.recentRuns);
+        recentRuns.hidden = state.runStarted;
+      }
     }
 
     function renderRecentRuns(runs) {
@@ -1157,6 +1169,23 @@ export function buildAgentHtml(): string {
         const list = makeElement('ul', 'recent-run-list');
         state.recentRuns.slice(0, 5).forEach(run => list.appendChild(makeElement('li', 'recent-run', run)));
         container.appendChild(list);
+      } else {
+        const how = makeElement('section', 'how-it-works');
+        how.appendChild(makeElement('h2', '', 'How it works'));
+        [
+          ['1', 'Plan on TrueForge', 'The agent reads only the files it needs and plans the change.'],
+          ['2', 'Verify in a sandbox', 'Your tests run on a copy. Failures go back to the agent to fix.'],
+          ['3', 'Apply with a Passport', 'See risks and blast radius, then accept hunk by hunk.']
+        ].forEach(row => {
+          const item = makeElement('div', 'how-row');
+          item.appendChild(makeElement('span', 'how-number', row[0]));
+          const copy = makeElement('div', 'how-copy');
+          copy.appendChild(makeElement('span', 'how-title', row[1]));
+          copy.appendChild(makeElement('span', 'how-description', row[2]));
+          item.appendChild(copy);
+          how.appendChild(item);
+        });
+        container.appendChild(how);
       }
       container.hidden = state.runStarted;
     }
