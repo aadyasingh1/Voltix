@@ -11,9 +11,10 @@ export function buildAgentHtml(): string {
     :root{--tf-radius:12px;--tf-border:var(--vx-line);--tf-card:var(--vscode-editor-background);--tf-muted:var(--vscode-descriptionForeground);--tf-accent:var(--vx-violet);--tf-ok:var(--vx-success);--tf-bad:var(--vx-danger);--tf-warn:var(--vx-warning);--tf-tint:var(--vx-raised)}
     body.vscode-dark{--vx-violet:#6E56CF;--vx-violet-text:#A594F9;--vx-success:#3DD68C;--vx-warning:#F0A93B;--vx-danger:#F2705E;--vx-line:#2E2D36;--vx-raised:#24232B}
     body.vscode-light{--vx-violet:#6E56CF;--vx-violet-text:#5B45BF;--vx-success:#1A7346;--vx-warning:#8C5300;--vx-danger:#B3362A;--vx-line:#DCD9E2;--vx-raised:#EFEDF3}
-    body{margin:0;padding:20px 22px 32px;font-family:var(--vscode-font-family);font-size:var(--vscode-font-size,13px);line-height:1.5;color:var(--vscode-foreground);background:var(--vscode-editor-background)}
+    body{margin:0;padding:12px;font-family:var(--vscode-font-family);font-size:var(--vscode-font-size,13px);line-height:1.5;color:var(--vscode-foreground);background:var(--vscode-editor-background)}
+    [hidden]{display:none!important}
     h1,h2,h3,p{margin-top:0}
-    h2{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--tf-muted)}
+    h2{font-size:13px;font-weight:600;text-transform:none;letter-spacing:0;color:var(--vscode-foreground)}
     h3{font-size:14px;font-weight:600}
     button{font-family:var(--vscode-font-family);font-size:12px;font-weight:500;color:var(--vscode-foreground);background:transparent;border:1px solid var(--vx-line);border-radius:8px;padding:6px 14px;cursor:pointer;transition:background-color .12s,filter .12s,opacity .12s}
     button:hover{background:var(--vscode-button-hoverBackground)}
@@ -47,8 +48,8 @@ export function buildAgentHtml(): string {
     .panel-section>summary:hover{color:var(--vscode-foreground)}
     .receipt-body{padding:0 12px 12px}
     .receipt-summary{color:var(--tf-muted);margin:0 0 8px}
-    .context-progress{height:7px;margin:6px 0 8px;border-radius:999px;background:var(--vscode-progressBar-background,var(--tf-border));overflow:hidden}
-    .context-progress-fill{height:100%;width:0;background:var(--tf-accent);transition:width .15s}
+    .context-progress{height:7px;margin:6px 0 8px;border-radius:999px;background:var(--vx-raised);overflow:hidden}
+    .context-progress-fill{height:100%;width:0;background:var(--vx-violet);transition:width .15s}
     .context-files,.context-left-out{margin:4px 0;color:var(--tf-muted);font-size:11px;overflow-wrap:anywhere}
     .context-file{display:block}
     .receipt-item{border-top:1px solid var(--tf-border);padding:8px 0}
@@ -112,7 +113,7 @@ export function buildAgentHtml(): string {
     .model-badge.fallback::before{background:var(--vx-warning)}
     .card{margin:12px 0;border:1px solid var(--vx-line);border-radius:12px;background:var(--tf-card);overflow:hidden}
     .card-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--tf-border)}
-    .card-title{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--tf-muted);margin-right:auto}
+    .card-title{font-size:13px;font-weight:600;text-transform:none;letter-spacing:0;color:var(--vscode-foreground);margin-right:auto}
     .pill{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border:1px solid var(--vx-line);border-radius:999px;background:var(--vx-raised);font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
     .pill::before{content:"";width:6px;height:6px;flex:none;border-radius:50%;background:currentColor}
     .pill.ok{color:var(--vx-success)}
@@ -204,14 +205,20 @@ export function buildAgentHtml(): string {
     #submit{display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:8px;font-weight:600}
     #probe-row{margin-top:10px}
     #apply:disabled{color:var(--vscode-foreground);background:transparent;border:1px solid var(--vx-line)}
-    .mode-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:6px;margin:12px 0}
+    .mode-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:12px 0}
     .mode-list>*{min-width:0}
-    button.mode{display:grid;grid-template-columns:28px minmax(0,1fr) auto;align-items:center;gap:8px;width:100%;padding:8px 10px;text-align:left;color:var(--vscode-foreground);background:var(--tf-card);border:1px solid var(--vx-line);border-radius:12px}
-    button.mode:hover{background:var(--vx-raised)}
-    .mode-icon{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;color:var(--vx-violet-text);background:var(--vx-raised);font-size:9px;font-weight:700;letter-spacing:.02em}
+    button.mode{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;min-width:0;padding:7px 6px;text-align:center;color:var(--vscode-foreground);background:var(--tf-card);border:1px solid var(--vx-line);border-radius:12px}
+    button.mode:hover,button.mode[aria-pressed="true"]{background:var(--vx-raised)}
+    button.mode[aria-pressed="true"] .mode-icon{color:var(--vx-violet-text)}
+    .mode-icon{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;color:var(--vscode-descriptionForeground);font-size:16px;line-height:16px;flex:none}
+    .codicon{font-family:codicon;font-style:normal;font-weight:normal;text-decoration:none;text-transform:none}
+    .codicon-checklist::before{content:"\ea6c"}
+    .codicon-git-compare::before{content:"\ea7c"}
+    .codicon-pulse::before{content:"\eb7c"}
+    .recent-runs{margin:8px 0 12px;color:var(--tf-muted);font-size:12px}
     .mode-text{display:flex;flex-direction:column;min-width:0}
-    .mode-name{font-weight:600}
-    .mode-sub{overflow:hidden;color:var(--tf-muted);font-size:11px;font-weight:400;text-overflow:ellipsis;white-space:nowrap}
+    .mode-name{font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .mode-sub{display:none}
     .new-badge{padding:1px 6px;border:1px solid var(--vx-line);border-radius:999px;color:var(--vx-violet-text);background:var(--vx-raised);font-size:10px;font-weight:700}
     .stepper{margin:12px 0;padding:10px 12px;border:1px solid var(--vx-line);border-radius:12px;background:var(--tf-card)}
     .stepper-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
@@ -233,7 +240,7 @@ export function buildAgentHtml(): string {
     .run-step.done .run-step-icon::before{content:"";position:absolute;left:3px;top:2px;width:7px;height:4px;border-left:2px solid var(--vx-success);border-bottom:2px solid var(--vx-success);transform:rotate(-45deg)}
     .run-step.failed .run-step-icon::before{content:"!";position:absolute;inset:0;color:var(--vx-danger);font-size:12px;font-weight:700;text-align:center}
     .run-step-time{color:var(--tf-muted);font-size:11px;font-weight:400;font-variant-numeric:tabular-nums}
-    .dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin:12px 0}
+    .dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:12px 0}
     .dash-grid>*{min-width:0}
     .mini-card{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:0 8px;min-width:0;padding:9px 12px;border:1px solid var(--vx-line);border-radius:12px;background:var(--tf-card)}
     .mini-card>*{min-width:0}
@@ -246,11 +253,11 @@ export function buildAgentHtml(): string {
     .mini-card.warning .mini-note{color:var(--tf-warn)}
     button.link-button{padding:0 4px;color:var(--vx-violet-text);background:transparent;border:none}
     button.link-button:hover:not(:disabled){background:transparent;text-decoration:underline}
-    .verify-hero{display:grid;grid-template-columns:38px minmax(0,1fr);align-items:center;gap:10px;padding:12px}
+    .verify-hero{display:flex;align-items:center;gap:8px;padding:12px}
     .verify-hero>*{min-width:0}
-    .verify-mark{display:inline-flex;align-items:center}
+    .verify-mark{display:inline-flex;align-items:center;flex:none}
     .verify-mark::before{content:"";width:6px;height:6px;flex:none;margin-right:6px;border-radius:50%;background:currentColor}
-    .verify-title{display:block;font-size:15px;font-weight:700}
+    .verify-title{display:block;font-size:13px;font-weight:600}
     .verify-card.passed .verify-title{color:var(--vx-success)}
     .verify-card.failed .verify-title{color:var(--vx-danger)}
     .verify-sub{display:block;color:var(--tf-muted);font-size:12px;overflow-wrap:anywhere}
@@ -317,8 +324,8 @@ export function buildAgentHtml(): string {
     <div class="connection-row" title="Checking TrueForge connection">
       <span id="connection-dot" class="connection-dot" aria-hidden="true"></span>
       <span id="connection-label">TrueForge · checking connection…</span>
+      <span id="header-model" class="model-chip" title="Model fallback chain">Model</span>
     </div>
-    <div id="model-chain" class="model-chain" aria-label="Model fallback chain"></div>
     <div class="status-actions">
       <button id="cancel" type="button" hidden>Stop</button>
       <button id="undo-header" class="secondary" type="button" disabled>Undo last change</button>
@@ -350,56 +357,50 @@ export function buildAgentHtml(): string {
     </div>
   </form>
   <nav class="mode-list" aria-label="Voltix modes">
-    <button class="mode" type="button" data-action="mode-agent"><span class="mode-icon" aria-hidden="true">AG</span><span class="mode-text"><span class="mode-name">Agent Mode</span><span class="mode-sub">Plan · Execute · Verify</span></span></button>
-    <button class="mode" type="button" data-action="mode-futures"><span class="mode-icon" aria-hidden="true">2X</span><span class="mode-text"><span class="mode-name">Parallel Futures</span><span class="mode-sub">Build and compare two designs</span></span><span class="new-badge">New</span></button>
-    <button class="mode" type="button" data-action="mode-impact"><span class="mode-icon" aria-hidden="true">IR</span><span class="mode-text"><span class="mode-name">Impact Radar</span><span class="mode-sub">Risk and blast radius</span></span></button>
-    <button class="mode" type="button" data-action="mode-history"><span class="mode-icon" aria-hidden="true">H</span><span class="mode-text"><span class="mode-name">History</span><span class="mode-sub">Undo the last apply</span></span></button>
+    <button class="mode" type="button" data-action="mode-agent" aria-pressed="true" title="Plan, execute and verify"><span class="mode-icon codicon codicon-checklist" aria-hidden="true"></span><span class="mode-name">Agent</span></button>
+    <button class="mode" type="button" data-action="mode-futures" aria-pressed="false" title="Build and compare two designs"><span class="mode-icon codicon codicon-git-compare" aria-hidden="true"></span><span class="mode-name">Futures</span></button>
+    <button class="mode" type="button" data-action="mode-impact" aria-pressed="false" title="Risk and blast radius"><span class="mode-icon codicon codicon-pulse" aria-hidden="true"></span><span class="mode-name">Impact</span></button>
   </nav>
+  <p id="recent-runs" class="recent-runs">Describe a task. Voltix verifies changes before you apply them.</p>
   <section id="stepper" class="stepper" aria-label="Run progress" hidden></section>
   <div id="status" role="status" aria-live="polite"></div>
   <div id="error-area" aria-live="assertive"></div>
   <div id="result-area" aria-live="polite"></div>
   <div id="safety-proof-area" aria-live="polite"></div>
   <div id="futures-area"></div>
-  <div class="dash-grid">
-    <section id="model-card" class="mini-card" aria-label="Model">
-      <span class="mini-label">Model</span>
-      <span id="model-name" class="mini-value">Not set</span>
-      <span id="model-note" class="mini-note"></span>
-    </section>
+  <div class="dash-grid" id="context-card" hidden>
     <section class="mini-card context-budget-card" aria-label="Context budget">
       <span class="mini-label">Context budget</span>
-      <span id="context-summary" class="mini-value">No context yet</span>
+      <span id="context-summary" class="mini-value">No files loaded yet</span>
       <div id="context-progress" class="context-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Context token budget">
         <div id="context-progress-fill" class="context-progress-fill"></div>
       </div>
       <div id="context-files" class="context-files">No selected files</div>
       <p id="context-left-out" class="context-left-out">Left out: 0 files</p>
-      <button id="context-view" class="link-button" type="button" disabled>View</button>
+      <button id="context-view" class="link-button" type="button" hidden>View</button>
     </section>
   </div>
-  <div id="verify-area"></div>
-  <div id="passport-area"></div>
+  <div id="verify-area" hidden></div>
+  <div id="passport-area" hidden></div>
   <section id="history-section" class="card" aria-label="History" hidden></section>
   <details id="receipt" class="panel-section" hidden>
     <summary>Context Receipt <span id="receipt-count"></span></summary>
     <div id="receipt-body" class="receipt-body"><p class="receipt-summary">No context receipt for this request yet.</p></div>
   </details>
-  <details id="activity-section" class="panel-section">
+  <details id="activity-section" class="panel-section" hidden>
     <summary>Agent activity</summary>
     <ol id="activity-list" aria-live="polite"><li class="activity-item">Observed tool and turn events will appear here.</li></ol>
   </details>
-  <section aria-labelledby="response-heading">
+  <section id="response-section" aria-labelledby="response-heading" hidden>
     <h2 id="response-heading">Agent response</h2>
     <div id="conversation" aria-live="polite"><div class="chat-empty">Your conversation will appear here.</div></div>
   </section>
-  <section aria-labelledby="review-title">
+  <section id="review-section" aria-labelledby="review-title" hidden>
     <div class="review-heading">
       <h2 id="review-title">Proposed files</h2>
       <span id="review-counts">No files to review</span>
       <div class="review-actions" aria-label="Review all files">
         <button id="accept-all" class="secondary" type="button" disabled>Accept All</button>
-        <button id="reject-all" class="danger" type="button" disabled>Reject All</button>
         <button id="apply" type="button" disabled>Apply Accepted</button>
         <button id="discard" class="danger" type="button">Discard All</button>
         <button id="open-editor" class="secondary narrow-only" type="button" title="Review individual hunks in a wide editor tab">Open in Editor</button>
@@ -407,7 +408,7 @@ export function buildAgentHtml(): string {
     </div>
     <div class="review-layout">
       <nav id="file-list" aria-label="Proposed files"></nav>
-      <section id="review-detail" class="wide-only" aria-live="polite"><div class="review-empty">Proposed changes will appear here.</div></section>
+      <section id="review-detail" class="wide-only" aria-live="polite"></section>
     </div>
   </section>
   <script>
@@ -421,6 +422,7 @@ export function buildAgentHtml(): string {
       activities: [],
       diffMode: 'side-by-side',
       busy: false,
+      runStarted: false,
       applying: false,
       lastSubmittedText: '',
       modelChain: [],
@@ -448,14 +450,12 @@ export function buildAgentHtml(): string {
     const openSessionButton = document.getElementById('open-session');
     const connectionDot = document.getElementById('connection-dot');
     const connectionLabel = document.getElementById('connection-label');
-    const modelChain = document.getElementById('model-chain');
     const applyButton = document.getElementById('apply');
     const acceptAllButton = document.getElementById('accept-all');
-    const rejectAllButton = document.getElementById('reject-all');
     const discardButton = document.getElementById('discard');
-    const modelCard = document.getElementById('model-card');
-    const modelName = document.getElementById('model-name');
-    const modelNote = document.getElementById('model-note');
+    const openEditorButton = document.getElementById('open-editor');
+    const headerModel = document.getElementById('header-model');
+    const contextCard = document.getElementById('context-card');
     const contextSummary = document.getElementById('context-summary');
     const contextProgress = document.getElementById('context-progress');
     const contextProgressFill = document.getElementById('context-progress-fill');
@@ -468,6 +468,8 @@ export function buildAgentHtml(): string {
     const historySection = document.getElementById('history-section');
     const verifyArea = document.getElementById('verify-area');
     const passportArea = document.getElementById('passport-area');
+    const responseSection = document.getElementById('response-section');
+    const reviewSection = document.getElementById('review-section');
     const exploreButton = document.getElementById('explore');
     const exploreStartButton = document.getElementById('explore-start');
     const exploreBackButton = document.getElementById('explore-back');
@@ -481,6 +483,7 @@ export function buildAgentHtml(): string {
     state.run = null;
     state.runTimer = null;
     state.replaying = false;
+    updateEmptyState();
 
     function emptyFutures() {
       return { strategies: [], usedFallback: false, phases: {}, results: {}, rows: null, viewing: null, viewFileIndex: 0, chosen: null, regret: null };
@@ -1109,14 +1112,15 @@ export function buildAgentHtml(): string {
       renderFutures();
     }
 
-    function renderModelChain() {
-      clear(modelChain);
-      state.modelChain.forEach((model, index) => {
-        if (index) modelChain.appendChild(makeElement('span', '', '→'));
-        const chip = makeElement('span', 'model-chip' + (model === state.activeModel ? ' active' : ''), model);
-        modelChain.appendChild(chip);
-      });
-      if (state.modelChain.length) modelChain.appendChild(makeElement('span', 'fallback-label', '(fallback in order)'));
+    function updateEmptyState() {
+      contextCard.hidden = !state.runStarted;
+      responseSection.hidden = !state.runStarted && state.messages.length === 0;
+      activitySection.hidden = !state.runStarted && state.activities.length === 0;
+      reviewSection.hidden = !state.runStarted && state.changes.length === 0;
+      verifyArea.hidden = !state.runStarted;
+      passportArea.hidden = !state.runStarted;
+      const recentRuns = document.getElementById('recent-runs');
+      if (recentRuns) recentRuns.hidden = state.runStarted;
     }
 
     function changeState(change) {
@@ -1178,15 +1182,19 @@ export function buildAgentHtml(): string {
       );
       applyButton.disabled = state.applying || !accepted;
       acceptAllButton.disabled = state.applying || state.changes.length === 0;
-      rejectAllButton.disabled = state.applying || state.changes.length === 0;
+      acceptAllButton.hidden = state.changes.length === 0;
+      applyButton.hidden = state.changes.length === 0;
+      discardButton.hidden = state.changes.length === 0;
       discardButton.disabled = state.applying;
+      reviewSection.hidden = !state.runStarted && state.changes.length === 0;
+      if (openEditorButton) openEditorButton.hidden = state.changes.length === 0;
       renderFileList();
     }
 
     function renderFileList() {
       clear(fileList);
       if (state.changes.length === 0) {
-        fileList.appendChild(makeElement('p', 'review-empty', 'No proposed files. Submit a task to review changes.'));
+        fileList.appendChild(makeElement('p', 'review-empty', 'No proposed files.'));
         renderSelectedChange();
         return;
       }
@@ -1353,8 +1361,9 @@ export function buildAgentHtml(): string {
       clear(reviewDetail);
       const change = state.changes.find(item => item.id === state.selectedId);
       if (!change) {
-        reviewDetail.appendChild(makeElement('div', 'review-empty',
-          state.changes.length === 0 ? 'Proposed changes will appear here.' : 'Select a file to review its complete changes.'));
+        if (state.changes.length !== 0) {
+          reviewDetail.appendChild(makeElement('div', 'review-empty', 'Select a file to review its complete changes.'));
+        }
         return;
       }
       const header = makeElement('div', 'review-header');
@@ -1393,10 +1402,19 @@ export function buildAgentHtml(): string {
       const budget = Number(receipt.budget) || 0;
       const searchedCount = Number(receipt.searchedCount) || 0;
       const percentage = budget > 0 ? Math.min(100, Math.round((totalTokens / budget) * 100)) : 0;
-      contextSummary.textContent = fileCount + (fileCount === 1 ? ' file · ' : ' files · ') + totalTokens.toLocaleString() + ' of ' +
-        budget.toLocaleString() + ' tokens · searched ' + searchedCount.toLocaleString() + ' files';
-      contextProgress.setAttribute('aria-valuenow', String(percentage));
-      contextProgressFill.style.width = percentage + '%';
+      if (fileCount === 0) {
+        contextSummary.textContent = 'No files loaded yet';
+        contextProgress.hidden = true;
+        contextView.hidden = true;
+      } else {
+        contextSummary.textContent = fileCount + (fileCount === 1 ? ' file · ' : ' files · ') + totalTokens.toLocaleString() + ' of ' +
+          budget.toLocaleString() + ' tokens · searched ' + searchedCount.toLocaleString() + ' files';
+        contextProgress.hidden = false;
+        contextProgress.setAttribute('aria-valuenow', String(percentage));
+        contextProgressFill.style.width = percentage + '%';
+        contextView.hidden = false;
+        contextView.disabled = false;
+      }
       clear(contextFiles);
       if (items.length) {
         items.forEach(item => contextFiles.appendChild(makeElement('span', 'context-file', item.path || 'Unknown file')));
@@ -1409,7 +1427,6 @@ export function buildAgentHtml(): string {
       contextLeftOut.textContent = excludedCount
         ? 'Left out: ' + excludedCount + ' files (' + excludedNames.join(', ') + (excludedCount > excludedNames.length ? '…' : '') + ')'
         : 'Left out: 0 files';
-      contextView.disabled = false;
       receiptCount.textContent = items.length ? '(' + items.length + ' selected)' : '(no files selected)';
       const summaryParts = [
         items.length + ' selected',
@@ -1605,17 +1622,6 @@ export function buildAgentHtml(): string {
       updateReviewSummary();
     });
 
-    rejectAllButton.addEventListener('click', () => {
-      if (rejectAllButton.disabled) return;
-      state.changes.forEach(change => {
-        state.decisions.set(change.id, 'reject');
-        change.hunks.forEach(hunk => state.hunkDecisions.delete(hunk.id));
-        state.outcomes.delete(change.id);
-        vscode.postMessage({ type: 'reject_file', changeId: change.id });
-      });
-      updateReviewSummary();
-    });
-
     document.getElementById('discard').addEventListener('click', () => {
       if (state.applying) return;
       vscode.postMessage({ type: 'discard_all' });
@@ -1623,6 +1629,7 @@ export function buildAgentHtml(): string {
     });
 
     function resetReview() {
+      state.runStarted = false;
       state.changes = [];
       state.selectedId = null;
       state.decisions.clear();
@@ -1639,10 +1646,13 @@ export function buildAgentHtml(): string {
       renderFutures();
       renderVerification();
       renderPassport();
+      updateEmptyState();
       updateReviewSummary();
     }
 
     function startRun(mode) {
+      state.runStarted = true;
+      updateEmptyState();
       startStepper(mode);
       activitySection.open = true;
       clear(errorArea);
@@ -1691,16 +1701,15 @@ export function buildAgentHtml(): string {
         vscode.postMessage({ type: 'copy_passport' });
       } else if (action === 'mode-agent') {
         setFuturesMode(false);
+        document.querySelectorAll('button.mode').forEach(mode => mode.setAttribute('aria-pressed', mode.dataset.action === 'mode-agent' ? 'true' : 'false'));
         input.focus();
       } else if (action === 'mode-futures') {
         setFuturesMode(true);
+        document.querySelectorAll('button.mode').forEach(mode => mode.setAttribute('aria-pressed', mode.dataset.action === 'mode-futures' ? 'true' : 'false'));
         if (state.futures.strategies.length) reveal(futuresArea);
       } else if (action === 'mode-impact') {
+        document.querySelectorAll('button.mode').forEach(mode => mode.setAttribute('aria-pressed', mode.dataset.action === 'mode-impact' ? 'true' : 'false'));
         showImpact();
-      } else if (action === 'mode-history') {
-        historySection.hidden = !historySection.hidden;
-        renderHistory();
-        if (!historySection.hidden) reveal(historySection);
       } else if (action === 'undo-last') {
         vscode.postMessage({ type: 'undo_last' });
       } else if (action === 'open-diff' && changeId) {
@@ -1822,6 +1831,8 @@ export function buildAgentHtml(): string {
       } else if (message.type === 'context_receipt') {
         renderReceipt(message.receipt || {});
       } else if (message.type === 'pending_change' && message.change && message.change.id) {
+        state.runStarted = true;
+        updateEmptyState();
         const index = state.changes.findIndex(change => change.id === message.change.id);
         if (index === -1) state.changes.push(message.change);
         else state.changes[index] = message.change;
@@ -1850,16 +1861,17 @@ export function buildAgentHtml(): string {
             last.phase === 'failed' ? 'Done · tests still failing — review carefully before applying.' : 'Turn complete.';
         }
       } else if (message.type === 'model_info') {
-        modelName.textContent = message.model;
         state.activeModel = message.model;
         if (!state.modelChain.includes(message.model)) state.modelChain.unshift(message.model);
-        renderModelChain();
-        modelCard.classList.toggle('warning', Boolean(message.fallbackFrom));
-        modelNote.textContent = message.fallbackFrom ? 'Fallback: ' + message.fallbackFrom + ' failed' : 'Selected model';
+        const shortName = String(message.model).includes('/') ? String(message.model).split('/').pop() : String(message.model);
+        headerModel.textContent = shortName || 'Model';
+        headerModel.title = 'Fallback chain: ' + (state.modelChain.length ? state.modelChain.join(' → ') : String(message.model));
       } else if (message.type === 'model_chain') {
         state.modelChain = message.models || [];
         state.activeModel = message.active || state.activeModel;
-        renderModelChain();
+        const shortName = String(state.activeModel).includes('/') ? String(state.activeModel).split('/').pop() : String(state.activeModel);
+        headerModel.textContent = shortName || 'Model';
+        headerModel.title = 'Fallback chain: ' + (state.modelChain.length ? state.modelChain.join(' → ') : (state.activeModel || 'Not set'));
       } else if (message.type === 'connection_status') {
         const baseUrl = String(message.baseUrl || '');
         let host = baseUrl;
