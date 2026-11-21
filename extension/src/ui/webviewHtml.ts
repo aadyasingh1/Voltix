@@ -187,11 +187,11 @@ export function buildAgentHtml(): string {
     @media(prefers-reduced-motion:reduce){.step-icon.run{animation:none}}
     [hidden]{display:none!important}
     .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-    .brand{display:flex;align-items:center;gap:10px;margin-bottom:14px}
-    .logo{flex:none;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;color:var(--vx-violet)}
+    .brand{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+    .logo{flex:none;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;color:var(--vx-violet)}
     .brand-text{display:flex;flex:1 1 0;flex-direction:column;min-width:0}
-    .brand-name{font-size:17px;font-weight:600;line-height:1.2}
-    .brand-tagline{color:var(--tf-muted);font-size:11.5px}
+    .brand-name{font-size:18px;font-weight:600;line-height:1.2}
+    .brand-tagline{color:var(--vscode-descriptionForeground);font-size:12px}
     .platform-pill{flex:none;padding:2px 9px;border:1px solid var(--tf-border);border-radius:999px;color:var(--tf-muted);font-size:10.5px;white-space:nowrap}
     .task-box{border:1px solid var(--vx-line);border-radius:12px;background:var(--vscode-input-background);overflow:hidden;transition:border-color .12s}
     .task-box:focus-within{border-color:var(--vx-violet)}
@@ -287,9 +287,9 @@ export function buildAgentHtml(): string {
     .status-block{margin:12px 0;padding:10px 12px;border:1px solid var(--vx-line);border-radius:12px;background:var(--tf-card)}
     .connection-row,.status-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
     .connection-row{font-size:12px;overflow-wrap:anywhere}
-    .connection-dot{display:inline-block;width:8px;height:8px;min-width:8px;min-height:8px;border-radius:50%;background:var(--tf-muted);flex:none}
-    .connection-dot.connected{background:var(--tf-ok)}
-    .connection-dot.disconnected{background:var(--tf-bad)}
+    .connection-dot{display:inline-block;width:8px;height:8px;min-width:8px;min-height:8px;margin-right:8px;border-radius:50%;background:var(--vscode-descriptionForeground);flex:none}
+    .connection-dot.connected{background:var(--vx-success)}
+    .connection-dot.disconnected{background:var(--vx-danger)}
     .model-chain{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin:8px 0;color:var(--tf-muted);font-size:11px}
     .model-chip{padding:2px 7px;border:1px solid var(--vx-line);border-radius:999px}
     .model-chip.active{border-color:var(--tf-accent);background:var(--tf-tint);color:var(--vscode-foreground);font-weight:600}
@@ -325,7 +325,7 @@ export function buildAgentHtml(): string {
 </head>
 <body>
   <header class="brand">
-    <span class="logo" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="var(--vx-raised)"/><path d="M15 15 L26 15 L32 34 L39 15 L49 15 L37.5 38 L43 38 L27 54 L30.5 41 L25 41 Z" fill="#6E56CF"/><circle cx="48" cy="48" r="3.6" fill="#D4FF4F"/></svg></span>
+    <span class="logo" aria-hidden="true"><svg width="32" height="32" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="var(--vx-raised)"/><path d="M15 15 L26 15 L32 34 L39 15 L49 15 L37.5 38 L43 38 L27 54 L30.5 41 L25 41 Z" fill="#6E56CF"/><circle cx="48" cy="48" r="4.5" fill="#D4FF4F"/></svg></span>
     <span class="brand-text"><span class="brand-name">Voltix</span><span class="brand-tagline">Proof before apply.</span></span>
     <span class="platform-pill">runs on TrueForge</span>
   </header>
