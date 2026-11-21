@@ -10,6 +10,7 @@ export function getSettings() {
     verifyEnabled: config.get<boolean>('verify.enabled', true),
     verifyCommand: config.get<string>('verify.command', ''),
     verifyMaxFixRounds: Math.max(0, Math.min(5, config.get<number>('verify.maxFixRounds', 2))),
+    futuresProbeCommand: config.get<string>('futures.probeCommand', ''),
   };
 }
 

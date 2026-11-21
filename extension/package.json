@@ -32,7 +32,8 @@
         "voltix.contextTokenBudget": { "type": "number", "default": 8000, "minimum": 500 },
         "voltix.verify.enabled": { "type": "boolean", "default": true, "description": "Verify-before-apply: run the tests against the agent's pending changes in a sandbox copy and send failures back to the agent automatically." },
         "voltix.verify.command": { "type": "string", "default": "", "description": "Test command used for verification (e.g. python -m pytest -q). Empty: use the command the agent chose, or infer one." },
-        "voltix.verify.maxFixRounds": { "type": "number", "default": 2, "minimum": 0, "maximum": 5, "description": "How many times Voltix sends failing test output back to the agent before handing the result to you." }
+        "voltix.verify.maxFixRounds": { "type": "number", "default": 2, "minimum": 0, "maximum": 5, "description": "How many times Voltix sends failing test output back to the agent before handing the result to you." },
+        "voltix.futures.probeCommand": { "type": "string", "default": "", "description": "Optional behaviour probe run in each future's sandbox (python, flask, node, pytest or npm run/test; no chaining, pipes or redirection). Example: flask --app /tmp/hello.py config" }
       }
     }
   },

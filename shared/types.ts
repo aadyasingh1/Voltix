@@ -84,6 +84,54 @@ export interface ChangePassport {
 
 export type VerifyPhase = 'running' | 'passed' | 'failed' | 'fixing' | 'skipped';
 
+export type FutureId = 'A' | 'B';
+export type FuturePhase = 'planning' | 'implementing' | 'verifying' | 'fixing' | 'probing' | 'done' | 'failed';
+
+export interface FutureStrategy {
+  id: FutureId;
+  title: string;
+  approach: string;
+  tradeoff: string;
+}
+
+export interface FutureProbeResult {
+  command: string;
+  exitCode: number;
+  passed: boolean;
+  timedOut: boolean;
+  /** Last 3000 characters of combined output. */
+  output: string;
+}
+
+/** Measured facts about one future. Nothing here is estimated by a model. */
+export interface FutureEvidence {
+  futureId: FutureId;
+  strategy: FutureStrategy;
+  status: 'completed' | 'failed';
+  error?: string;
+  tests: { ran: boolean; passed: boolean; summary: string; command?: string };
+  fixRounds: number;
+  filesChanged: string[];
+  added: number;
+  removed: number;
+  newImports: string[];
+  risk: RiskLevel;
+  flags: string[];
+  blastRadius: number;
+  probe: FutureProbeResult | null;
+  durationMs: number;
+  model?: string;
+}
+
+export interface ComparisonRow {
+  key: string;
+  label: string;
+  a: string;
+  b: string;
+  /** The future with the better value, or null for a tie or when the values cannot be compared. */
+  better: FutureId | null;
+}
+
 export type PanelOutboundMessage =
   | { type: 'text_delta'; content: string }
   | { type: 'text_done'; fullContent: string }
@@ -109,6 +157,13 @@ export type PanelOutboundMessage =
       durationMs?: number;
     }
   | { type: 'passport'; passport: ChangePassport | null }
+  | { type: 'futures_config'; probeCommand: string }
+  | { type: 'futures_plan'; strategies: FutureStrategy[]; usedFallback: boolean }
+  | { type: 'future_progress'; futureId: FutureId; phase: FuturePhase; label: string }
+  | { type: 'future_result'; futureId: FutureId; evidence: FutureEvidence; passport: ChangePassport | null; changes: PendingChange[] }
+  | { type: 'futures_compare'; rows: ComparisonRow[] }
+  | { type: 'futures_chosen'; futureId: FutureId; otherId: FutureId }
+  | { type: 'futures_cleared' }
   | {
       type: 'apply_result';
       success: boolean;
@@ -129,7 +184,11 @@ export type PanelInboundMessage =
   | { type: 'reject_hunk'; changeId: string; hunkId: string }
   | { type: 'apply_accepted' }
   | { type: 'discard_all' }
-  | { type: 'copy_passport' };
+  | { type: 'copy_passport' }
+  | { type: 'panel_ready' }
+  | { type: 'explore_futures'; text: string; probeCommand?: string }
+  | { type: 'choose_future'; futureId: FutureId }
+  | { type: 'discard_futures' };
 
 export interface WorkspaceFile { path: string; absPath: string; sizeBytes: number; language: string }
 export interface SearchResult { path: string; absPath: string; line: number; column: number; lineContent: string }

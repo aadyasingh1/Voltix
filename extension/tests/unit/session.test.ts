@@ -21,6 +21,7 @@ beforeEach(() => {
     verifyEnabled: true,
     verifyCommand: '',
     verifyMaxFixRounds: 2,
+    futuresProbeCommand: '',
   });
   const client = {
     sessions: { create: mockCreate },

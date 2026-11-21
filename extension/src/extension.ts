@@ -12,6 +12,8 @@ import { startMcpServer } from './tools/mcpServer';
 import { guardWorkspacePath } from './tools/pathGuard';
 import { formatForAgent, resetVerification, verifyPending } from './verify/verifier';
 import { passportToMarkdown } from './review/passport';
+import { FuturesEngine } from './futures/futuresEngine';
+import { getSettings } from './config/settings';
 
 let mcpServer: import('node:http').Server | undefined;
 
@@ -25,6 +27,12 @@ export async function activate(context: vscode.ExtensionContext) {
 
   let panel: AgentPanel | undefined;
   let agentMode: AgentMode | undefined;
+  let agentRunning = false;
+  let inlineRunning = false;
+  const futures = new FuturesEngine(
+    message => panel?.post(message),
+    passport => { if (agentMode) agentMode.lastPassport = passport; }
+  );
   const openPanel = () => {
     if (!panel) {
       const newPanel = new AgentPanel(context.extensionUri);
@@ -33,13 +41,40 @@ export async function activate(context: vscode.ExtensionContext) {
       else agentMode = new AgentMode(newPanel);
       newPanel.setInboundHandler(async message => {
         if (message.type === 'submit') {
+          if (futures.busy || inlineRunning) {
+            newPanel.post({ type: 'error', message: 'Wait for the current Voltix run to finish, or cancel it.', recoverable: true });
+            return;
+          }
+          agentRunning = true;
           try { await agentMode?.submit(message.text); } catch (error) {
             newPanel.post({ type: 'error', message: error instanceof Error ? error.message : 'Request failed', recoverable: true });
+          } finally {
+            agentRunning = false;
           }
         } else if (message.type === 'cancel') {
-          try { await agentMode?.cancel(); } catch (error) {
+          try {
+            if (futures.busy) await futures.cancel();
+            else await agentMode?.cancel();
+          } catch (error) {
             newPanel.post({ type: 'error', message: error instanceof Error ? error.message : 'Cancellation failed', recoverable: true });
           }
+        } else if (message.type === 'panel_ready') {
+          newPanel.post({ type: 'futures_config', probeCommand: getSettings().futuresProbeCommand });
+          futures.replay();
+        } else if (message.type === 'explore_futures') {
+          if (agentRunning || inlineRunning) {
+            newPanel.post({ type: 'error', message: 'Wait for the current Voltix run to finish before exploring futures.', recoverable: true });
+            return;
+          }
+          try { await futures.explore(message.text, message.probeCommand); } catch (error) {
+            newPanel.post({ type: 'error', message: error instanceof Error ? error.message : 'Exploring futures failed', recoverable: true });
+          }
+        } else if (message.type === 'choose_future') {
+          try { await futures.choose(message.futureId); } catch (error) {
+            newPanel.post({ type: 'error', message: error instanceof Error ? error.message : 'Choosing the future failed', recoverable: true });
+          }
+        } else if (message.type === 'discard_futures') {
+          await futures.discard();
         } else if (message.type === 'accept_hunk') {
           PendingChanges.acceptHunk(message.changeId, message.hunkId);
         } else if (message.type === 'reject_hunk') {
@@ -51,6 +86,7 @@ export async function activate(context: vscode.ExtensionContext) {
         } else if (message.type === 'apply_accepted') {
           applyWithUndo();
         } else if (message.type === 'discard_all') {
+          await futures.discard();
           for (const change of PendingChanges.getAll()) newPanel.post({ type: 'change_removed', changeId: change.id });
           PendingChanges.clear();
           resetVerification();
@@ -100,7 +136,19 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand('voltix.openPanel', openPanel),
     vscode.commands.registerCommand('voltix.undoLastApply', undo),
-    vscode.commands.registerCommand('voltix.inlineEdit', () => runInlineEdit(diffProvider)),
+    vscode.commands.registerCommand('voltix.inlineEdit', async () => {
+      // Inline edit reads the default store, so it must not share the MCP tools with a running future.
+      if (futures.busy || agentRunning || inlineRunning) {
+        void vscode.window.showWarningMessage('Voltix: wait for the current run to finish before starting an inline edit.');
+        return;
+      }
+      inlineRunning = true;
+      try {
+        await runInlineEdit(diffProvider);
+      } finally {
+        inlineRunning = false;
+      }
+    }),
     vscode.commands.registerCommand('voltix.applyAccepted', applyWithUndo),
     vscode.commands.registerCommand('voltix.acceptInlineEdit', () => {
       const active = PendingChanges.getAll().at(-1);
@@ -110,7 +158,10 @@ export async function activate(context: vscode.ExtensionContext) {
       const active = PendingChanges.getAll().at(-1);
       if (active) PendingChanges.rejectFile(active.id);
     }),
-    vscode.commands.registerCommand('voltix.discardAll', () => PendingChanges.clear())
+    vscode.commands.registerCommand('voltix.discardAll', async () => {
+      await futures.discard();
+      PendingChanges.clear();
+    })
   );
 
   try {
