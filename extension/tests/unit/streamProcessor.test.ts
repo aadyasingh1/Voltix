@@ -100,6 +100,27 @@ test('reports an unexpected stream end instead of inventing a successful complet
   });
 });
 
+test('emits SDK user approval decisions as UI activity updates', async () => {
+  const messages: PanelOutboundMessage[] = [];
+  const client = fakeClient([
+    {
+      type: 'user.tool_approval',
+      id: 'approval-event-1',
+      createdAt: '2026-01-01',
+      threadId: 'thread-1',
+      toolCallId: 'approval-1',
+      approval: { status: 'deny', reason: 'User rejected the changes' },
+    },
+  ]);
+  await processTurn(client, 'session-1', 'implement', message => messages.push(message));
+  expect(messages).toContainEqual({
+    type: 'approval_decision',
+    toolCallId: 'approval-1',
+    decision: 'deny',
+    reason: 'User rejected the changes',
+  });
+});
+
 test('emits submit_changes approval-required events and compaction completions', async () => {
   const messages: PanelOutboundMessage[] = [];
   const client = fakeClient([

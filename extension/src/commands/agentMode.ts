@@ -188,6 +188,7 @@ export class AgentMode {
         approval: { status: 'allow' },
       }],
     });
+    this.surface.post({ type: 'approval_decision', toolCallId: approval.toolCallId, decision: 'allow' });
     if (rejectedFiles.length) {
       const note = 'The user rejected hunks in these files: ' + [...new Set(rejectedFiles)].join(', ') +
         '. Do not re-propose those rejected hunks; continue only with the accepted changes.';
@@ -207,6 +208,7 @@ export class AgentMode {
         approval: { status: 'deny', reason },
       }],
     });
+    this.surface.post({ type: 'approval_decision', toolCallId: approval.toolCallId, decision: 'deny', reason });
     this.pendingApproval = undefined;
   }
 

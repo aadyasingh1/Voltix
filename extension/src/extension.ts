@@ -302,11 +302,9 @@ export async function activate(context: vscode.ExtensionContext) {
         .map(change => change.path);
       applyWithUndo();
       await agentMode.approveSubmittedChanges(rejectedFiles);
-      hub.post({ type: 'approval_decision', toolCallId: 'submit_changes', decision: 'allow' });
     } else if (message.type === 'discard_all') {
       await discardReview();
       await agentMode.denySubmittedChanges('User rejected the changes');
-      hub.post({ type: 'approval_decision', toolCallId: 'submit_changes', decision: 'deny', reason: 'User rejected the changes' });
     } else if (message.type === 'copy_passport') {
       const passport = agentMode.lastPassport;
       if (passport) {

@@ -164,6 +164,13 @@ export async function processTurn(
         triggerContextTokens: event.trigger.contextTokens,
         thresholdTokens: event.trigger.thresholdTokens,
       });
+    } else if (event.type === 'user.tool_approval') {
+      emit({
+        type: 'approval_decision',
+        toolCallId: event.toolCallId,
+        decision: event.approval.status === 'allow' ? 'allow' : 'deny',
+        reason: event.approval.status === 'deny' ? event.approval.reason : undefined,
+      });
     } else if (event.type === 'turn.done') {
       sawTerminalEvent = true;
       if (event.state.status === 'error' && options.deferErrors) {
