@@ -56,6 +56,10 @@ test('uses submit_changes approval with deferred read tools and preloaded write 
   expect(spec.instructions).toContain('edit_file');
   expect(spec.instructions).toContain('COMPLETE new file content');
   expect(spec.instructions).toContain('submit_changes');
+  expect(spec.instructions).toContain('Completion checklist');
+  expect(spec.instructions).toContain('search_workspace rather than assumed');
+  expect(spec.instructions).toContain('Do not edit CHANGES.rst unless the user explicitly asks');
+  expect(spec.instructions).toContain('one line per file');
   expect(spec.mcpServers[0].requireApprovalForTools).toEqual(['submit_changes']);
   expect(spec.mcpServers[0].preloadTools).not.toContain('list_workspace_files');
   expect(spec.mcpServers[0].preloadTools).not.toContain('search_workspace');

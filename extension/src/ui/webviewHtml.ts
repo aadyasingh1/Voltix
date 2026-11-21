@@ -44,6 +44,11 @@ export function buildAgentHtml(): string {
     .chat-role{margin-bottom:4px;color:var(--tf-muted);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
     .chat-content{min-height:1em}
     .chat-empty{padding:10px 12px;color:var(--tf-muted);border:1px solid var(--vx-line);border-radius:12px}
+    .changed-files-summary{margin:10px 0 16px;padding:10px 12px;border:1px solid var(--vx-line);border-radius:12px;background:var(--tf-card)}
+    .changed-files-summary>*{min-width:0}
+    .changed-files-title{display:block;margin-bottom:6px;font-size:13px;font-weight:600;color:var(--vscode-foreground)}
+    .changed-files-list{display:flex;flex-direction:column;gap:4px;margin:0;padding:0;list-style:none}
+    .changed-file-row{min-width:0;font-size:12px;overflow-wrap:anywhere}
     .panel-section{margin:14px 0;border:1px solid var(--vx-line);border-radius:12px;background:var(--tf-card);overflow:hidden}
     .panel-section>summary{cursor:pointer;padding:10px 12px;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--tf-muted)}
     .panel-section>summary:hover{color:var(--vscode-foreground)}
@@ -428,6 +433,7 @@ export function buildAgentHtml(): string {
   <section id="response-section" aria-labelledby="response-heading" hidden>
     <h2 id="response-heading">Agent response</h2>
     <div id="conversation" aria-live="polite"><div class="chat-empty">Your conversation will appear here.</div></div>
+    <section id="changed-files-summary" class="changed-files-summary" hidden></section>
   </section>
   <section id="review-section" aria-labelledby="review-title" hidden>
     <div class="review-heading">
@@ -472,6 +478,7 @@ export function buildAgentHtml(): string {
     const input = document.getElementById('input');
     const mentionMenu = document.getElementById('mention-menu');
     const conversation = document.getElementById('conversation');
+    const changedFilesSummary = document.getElementById('changed-files-summary');
     const fileList = document.getElementById('file-list');
     const reviewDetail = document.getElementById('review-detail');
     const reviewCounts = document.getElementById('review-counts');
@@ -1122,6 +1129,24 @@ export function buildAgentHtml(): string {
     function appendConversationMessage(role, content) {
       state.messages.push({ role, content });
       renderConversation();
+    }
+
+    function renderChangedFilesSummary() {
+      clear(changedFilesSummary);
+      const unique = new Map();
+      state.changes.forEach(change => {
+        if (!change.path) return;
+        unique.set(change.path, change.reason || 'Proposed change');
+      });
+      const count = unique.size;
+      changedFilesSummary.hidden = count === 0;
+      if (!count) return;
+      changedFilesSummary.appendChild(makeElement('span', 'changed-files-title', 'Files changed (' + count + ')'));
+      const list = makeElement('ul', 'changed-files-list');
+      unique.forEach((reason, file) => {
+        list.appendChild(makeElement('li', 'changed-file-row', file + ' — ' + reason));
+      });
+      changedFilesSummary.appendChild(list);
     }
 
     function ensureAssistantResponse() {
@@ -1821,11 +1846,13 @@ export function buildAgentHtml(): string {
       renderVerification();
       renderPassport();
       updateEmptyState();
+      renderChangedFilesSummary();
       updateReviewSummary();
     }
 
     function startRun(mode) {
       state.runStarted = true;
+      renderChangedFilesSummary();
       state.readByAgent = [];
       renderReadByAgent();
       updateEmptyState();
@@ -2013,8 +2040,10 @@ export function buildAgentHtml(): string {
         const response = ensureAssistantResponse();
         response.content = message.fullContent || '';
         renderConversation();
+        renderChangedFilesSummary();
       } else if (message.type === 'turn_done') {
         setBusy(false);
+        renderChangedFilesSummary();
         status.textContent = message.status === 'cancelled' ? 'Turn cancelled.' :
           message.status === 'error' ? 'The turn ended with an error.' : 'Turn complete.';
         if (message.status !== 'done') {
@@ -2046,6 +2075,7 @@ export function buildAgentHtml(): string {
         if (!state.selectedId) state.selectedId = message.change.id;
         clear(resultArea);
         updateReviewSummary();
+        renderChangedFilesSummary();
       } else if (message.type === 'change_removed') {
         const removedChange = state.changes.find(change => change.id === message.changeId);
         if (removedChange) removedChange.hunks.forEach(hunk => state.hunkDecisions.delete(hunk.id));
@@ -2054,6 +2084,7 @@ export function buildAgentHtml(): string {
         state.outcomes.delete(message.changeId);
         if (state.selectedId === message.changeId) state.selectedId = state.changes.length ? state.changes[0].id : null;
         updateReviewSummary();
+        renderChangedFilesSummary();
       } else if (message.type === 'apply_result') {
         showApplyResult(message);
       } else if (message.type === 'busy') {
