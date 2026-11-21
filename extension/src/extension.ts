@@ -306,6 +306,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
   const applyWithUndo = () => {
     const result = applyAndRecord(PendingChanges.getAll());
+    hunkCodeLens.refresh();
     hub.post({ type: 'apply_result', ...result });
     postHistory();
     if (result.applied.length) {

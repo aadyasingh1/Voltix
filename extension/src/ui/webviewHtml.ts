@@ -1378,7 +1378,7 @@ export function buildAgentHtml(): string {
       const budget = Number(receipt.budget) || 0;
       const searchedCount = Number(receipt.searchedCount) || 0;
       const percentage = budget > 0 ? Math.min(100, Math.round((totalTokens / budget) * 100)) : 0;
-      contextSummary.textContent = fileCount + ' files · ' + totalTokens.toLocaleString() + ' of ' +
+      contextSummary.textContent = fileCount + (fileCount === 1 ? ' file · ' : ' files · ') + totalTokens.toLocaleString() + ' of ' +
         budget.toLocaleString() + ' tokens · searched ' + searchedCount.toLocaleString() + ' files';
       contextProgress.setAttribute('aria-valuenow', String(percentage));
       contextProgressFill.style.width = percentage + '%';

@@ -29,10 +29,10 @@ export class HunkCodeLensProvider implements vscode.CodeLensProvider {
     const change = changeId ? this.getChange(changeId) : undefined;
     if (!change) return [];
     const lenses: vscode.CodeLens[] = [];
-    const reviewed = change.hunks.filter(hunk => hunk.accepted !== null).length;
+    const remaining = change.hunks.filter(hunk => hunk.accepted === null).length;
     const firstLine = new vscode.Range(0, 0, 0, 0);
     lenses.push(new vscode.CodeLens(firstLine, {
-      title: `Voltix: ${reviewed} of ${change.hunks.length} hunks to review`,
+      title: `Voltix: ${remaining} of ${change.hunks.length} hunks to review`,
       command: 'voltix.codeLensInfo',
     }));
     lenses.push(new vscode.CodeLens(firstLine, {
