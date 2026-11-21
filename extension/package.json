@@ -10,6 +10,9 @@
   "activationEvents": ["onStartupFinished", "onCommand:voltix.openPanel", "onCommand:voltix.inlineEdit"],
   "main": "./dist/extension.js",
   "contributes": {
+    "configurationDefaults": {
+      "diffEditor.codeLens": true
+    },
     "viewsContainers": {
       "activitybar": [
         { "id": "voltix", "title": "Voltix", "icon": "media/voltix.svg" }

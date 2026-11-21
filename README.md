@@ -129,6 +129,8 @@ Agent server listening on http://localhost:8790
 
 Open the repository root in VS Code and press **F5** using the **Run Voltix Extension** configuration in `.vscode/launch.json`. In the Extension Development Host, open the project folder you want Voltix to work in; the extension requires an open workspace folder.
 
+Voltix enables diff-editor CodeLens by default so per-hunk **Accept** and **Reject** actions appear in diff editors.
+
 ### 4. Open the Voltix panel
 
 Open the panel with **Cmd+Shift+A** on macOS or **Ctrl+Shift+A** on Windows/Linux. This command activates the extension if needed; the extension also declares `onStartupFinished` activation. The MCP server starts during extension activation.
