@@ -1,4 +1,7 @@
-# Voltix
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="docs/brand/voltix-lockup-on-light.svg">
+  <img src="docs/brand/voltix-lockup-on-dark.svg" alt="Voltix" width="251" height="64">
+</picture>
 
 **A transparent, surgical AI coding agent for VS Code — it proposes, you approve.**
 

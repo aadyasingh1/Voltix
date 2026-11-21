@@ -6,22 +6,24 @@ export function buildAgentHtml(): string {
   <meta charset="UTF-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
   <style>
-    /* Native VS Code look: every colour and font comes from the user's active theme. */
+    /* Theme backgrounds and typography come from VS Code; Voltix tokens are accents. */
     *{box-sizing:border-box}
-    :root{--tf-accent:#8b5cf6;--tf-accent2:#6366f1;--tf-gradient:linear-gradient(135deg,var(--tf-accent),var(--tf-accent2));--tf-ok:var(--vscode-testing-iconPassed,#2ea043);--tf-bad:var(--vscode-errorForeground,#e5484d);--tf-warn:var(--vscode-editorWarning-foreground,#b58900);--tf-tint:color-mix(in srgb,var(--tf-accent) 12%,transparent);--tf-radius:8px;--tf-border:var(--vscode-widget-border,var(--vscode-panel-border,rgba(128,128,128,.35)));--tf-card:var(--vscode-sideBar-background,var(--vscode-editor-background));--tf-muted:var(--vscode-descriptionForeground)}
+    :root{--tf-radius:12px;--tf-border:var(--vx-line);--tf-card:var(--vscode-editor-background);--tf-muted:var(--vscode-descriptionForeground);--tf-accent:var(--vx-violet);--tf-ok:var(--vx-success);--tf-bad:var(--vx-danger);--tf-warn:var(--vx-warning);--tf-tint:var(--vx-raised)}
+    body.vscode-dark{--vx-violet:#6E56CF;--vx-violet-text:#A594F9;--vx-success:#3DD68C;--vx-warning:#F0A93B;--vx-danger:#F2705E;--vx-line:#2E2D36;--vx-raised:#24232B}
+    body.vscode-light{--vx-violet:#6E56CF;--vx-violet-text:#5B45BF;--vx-success:#1A7346;--vx-warning:#8C5300;--vx-danger:#B3362A;--vx-line:#DCD9E2;--vx-raised:#EFEDF3}
     body{margin:0;padding:20px 22px 32px;font-family:var(--vscode-font-family);font-size:var(--vscode-font-size,13px);line-height:1.5;color:var(--vscode-foreground);background:var(--vscode-editor-background)}
     h1,h2,h3,p{margin-top:0}
     h2{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--tf-muted)}
     h3{font-size:14px;font-weight:600}
-    button{font-family:var(--vscode-font-family);font-size:12px;font-weight:500;color:var(--vscode-button-foreground);background:var(--vscode-button-background);border:1px solid transparent;border-radius:6px;padding:6px 14px;cursor:pointer;transition:background .12s,opacity .12s}
+    button{font-family:var(--vscode-font-family);font-size:12px;font-weight:500;color:var(--vscode-foreground);background:transparent;border:1px solid var(--vx-line);border-radius:8px;padding:6px 14px;cursor:pointer;transition:background-color .12s,filter .12s,opacity .12s}
     button:hover{background:var(--vscode-button-hoverBackground)}
     button:disabled{opacity:.45;cursor:default}
-    button.secondary{color:var(--vscode-button-secondaryForeground);background:var(--vscode-button-secondaryBackground)}
-    button.secondary:hover{background:var(--vscode-button-secondaryHoverBackground)}
-    button.danger{color:var(--vscode-errorForeground);background:transparent;border-color:var(--tf-border)}
-    button.danger:hover:not(:disabled){background:var(--vscode-inputValidation-errorBackground,rgba(255,80,80,.12))}
-    #submit,#explore-start,#apply:not(:disabled),button.primary{background:var(--tf-gradient);color:#fff;border-color:transparent}
-    #submit:hover:not(:disabled),#explore-start:hover:not(:disabled),#apply:hover:not(:disabled),button.primary:hover:not(:disabled){background:var(--tf-gradient);filter:brightness(1.1)}
+    button.secondary{color:var(--vscode-foreground);background:transparent;border:1px solid var(--vx-line)}
+    button.secondary:hover{background:var(--vx-raised)}
+    button.danger{color:var(--vx-danger);background:transparent;border-color:var(--vx-line)}
+    button.danger:hover:not(:disabled){background:var(--vx-raised)}
+    #submit,#explore-start,#apply:not(:disabled),button.primary{background:var(--vx-violet);color:#fff;border:none;border-radius:8px}
+    #submit:hover:not(:disabled),#explore-start:hover:not(:disabled),#apply:hover:not(:disabled),button.primary:hover:not(:disabled){background-image:none;filter:brightness(1.08)}
     button:focus-visible,textarea:focus-visible{outline:1px solid var(--vscode-focusBorder);outline-offset:2px}
     textarea{display:block;width:100%;min-height:84px;resize:vertical;margin:0 0 10px;padding:10px 12px;color:var(--vscode-input-foreground);background:var(--vscode-input-background);border:1px solid var(--vscode-input-border,var(--tf-border));border-radius:var(--tf-radius);font-family:var(--vscode-font-family);font-size:13px}
     textarea:focus{border-color:var(--vscode-focusBorder);outline:none}
@@ -30,21 +32,17 @@ export function buildAgentHtml(): string {
     code,pre,.diff-row,.unified-row,.activity-preview,.receipt-item pre,.file-nav,.hunk-review-title{font-family:var(--vscode-editor-font-family)}
     .toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
     #status{min-height:20px;margin:8px 0;color:var(--tf-muted);font-size:12px}
-    .error-banner,.result-banner{margin:10px 0;padding:10px 12px;border:1px solid var(--tf-border);border-left:3px solid var(--vscode-testing-iconPassed,#3fb950);border-radius:var(--tf-radius);background:var(--tf-card)}
-    .error-banner{border-left-color:var(--vscode-errorForeground)}
-    .safety-proof{border-left-color:var(--tf-accent)}
-    .result-banner.success{border-left-color:var(--vscode-testing-iconPassed,#3fb950)}
-    .result-banner.failure{border-left-color:var(--vscode-errorForeground)}
+    .error-banner,.result-banner{margin:10px 0;padding:10px 12px;border:1px solid var(--vx-line);border-radius:12px;background:var(--tf-card)}
     .banner-heading{font-weight:600;margin-bottom:4px}
     .banner-list{margin:6px 0 0;padding-left:20px}
     #conversation{display:flex;flex-direction:column;gap:10px;margin:8px 0 16px;max-height:520px;overflow:auto}
-    .chat-message{max-width:96%;padding:10px 12px;border:1px solid var(--tf-border);border-radius:var(--tf-radius);white-space:pre-wrap;overflow-wrap:anywhere}
+    .chat-message{min-width:0;max-width:96%;padding:10px 12px;border:1px solid var(--vx-line);border-radius:12px;white-space:pre-wrap;overflow-wrap:anywhere}
     .chat-message.user{align-self:flex-end;background:var(--vscode-input-background)}
-    .chat-message.assistant{align-self:flex-start;border-left:3px solid var(--tf-accent);background:var(--tf-card)}
+    .chat-message.assistant{align-self:flex-start;background:var(--tf-card)}
     .chat-role{margin-bottom:4px;color:var(--tf-muted);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
     .chat-content{min-height:1em}
-    .chat-empty{padding:10px 12px;color:var(--tf-muted);border:1px dashed var(--tf-border);border-radius:var(--tf-radius)}
-    .panel-section{margin:14px 0;border:1px solid var(--tf-border);border-radius:var(--tf-radius);background:var(--tf-card);overflow:hidden}
+    .chat-empty{padding:10px 12px;color:var(--tf-muted);border:1px solid var(--vx-line);border-radius:12px}
+    .panel-section{margin:14px 0;border:1px solid var(--vx-line);border-radius:12px;background:var(--tf-card);overflow:hidden}
     .panel-section>summary{cursor:pointer;padding:10px 12px;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--tf-muted)}
     .panel-section>summary:hover{color:var(--vscode-foreground)}
     .receipt-body{padding:0 12px 12px}
@@ -59,11 +57,11 @@ export function buildAgentHtml(): string {
     #activity-list{margin:0;padding:0;list-style:none;max-height:360px;overflow:auto}
     .activity-item{position:relative;padding:9px 12px 9px 28px;border-top:1px solid var(--tf-border)}
     .activity-item::before{content:"";position:absolute;left:12px;top:15px;width:7px;height:7px;border-radius:50%;background:var(--tf-accent)}
-    .activity-title{font-weight:600;font-family:var(--vscode-editor-font-family);color:var(--vscode-textLink-foreground)}
+    .activity-title{font-weight:600;font-family:var(--vscode-editor-font-family);color:var(--vx-violet-text)}
     .activity-status,.activity-preview{color:var(--tf-muted);margin:3px 0 0}
     .activity-raw{margin-top:4px;color:var(--tf-muted);font-size:11px}
     .activity-raw summary{cursor:pointer}
-    .activity-preview{white-space:pre-wrap;overflow-wrap:anywhere;font-size:11.5px;max-height:120px;overflow:hidden;-webkit-mask-image:linear-gradient(#000 75%,transparent)}
+    .activity-preview{white-space:pre-wrap;overflow-wrap:anywhere;font-size:11.5px;max-height:120px;overflow:hidden}
     #activity-heading{padding:10px 12px;margin:0}
     .review-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:20px 0 10px}
     .review-heading>*{min-width:0}
@@ -77,7 +75,7 @@ export function buildAgentHtml(): string {
     #file-list>*{min-width:0}
     .file-nav{width:100%;text-align:left;color:var(--vscode-foreground);background:var(--tf-card);border:1px solid var(--tf-border);border-radius:6px;overflow-wrap:anywhere;font-size:12px}
     .file-nav:hover{background:var(--vscode-list-hoverBackground)}
-    .file-nav[aria-current="true"]{background:var(--vscode-list-activeSelectionBackground);color:var(--vscode-list-activeSelectionForeground,var(--vscode-foreground));border-color:var(--vscode-focusBorder);box-shadow:inset 3px 0 0 var(--tf-accent)}
+    .file-nav[aria-current="true"]{background:var(--vx-raised);color:var(--vscode-foreground);border-color:var(--vx-violet)}
     .file-nav-path,.file-nav-state{display:block}
     .file-nav-state{margin-top:4px;color:var(--tf-muted);font-size:11px}
     #review-detail{min-width:0;min-height:160px;border:1px solid var(--tf-border);border-radius:var(--tf-radius);overflow:hidden;background:var(--vscode-editor-background)}
@@ -86,7 +84,7 @@ export function buildAgentHtml(): string {
     .review-header h3{margin:0 0 5px;overflow-wrap:anywhere;font-family:var(--vscode-editor-font-family)}
     .review-reason{margin:0 0 8px;color:var(--tf-muted);white-space:pre-wrap;overflow-wrap:anywhere}
     .review-meta{display:flex;flex-wrap:wrap;gap:8px;align-items:center;color:var(--tf-muted);margin-bottom:8px}
-    .state-badge{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:600;background:var(--vscode-badge-background);color:var(--vscode-badge-foreground)}
+    .state-badge{display:inline-block;padding:1px 8px;border:1px solid var(--vx-line);border-radius:999px;font-size:11px;font-weight:600;background:var(--vx-raised);color:var(--vscode-foreground)}
     .decision-note{margin:8px 0 0;color:var(--tf-muted)}
     .diff-mode{margin-left:auto}
     .diff-labels,.diff-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
@@ -96,12 +94,12 @@ export function buildAgentHtml(): string {
     .diff-row,.unified-row{min-width:0;font-size:12px;line-height:1.6}
     .hunk-review-control{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:6px 10px;background:var(--tf-card);border-top:1px solid var(--tf-border)}
     .hunk-review-title{flex:1 1 220px;color:var(--tf-muted);font-size:12px}
-    .hunk-review-state{color:var(--vscode-textLink-foreground)}
+    .hunk-review-state{color:var(--vx-violet-text)}
     .diff-cell{display:flex;min-width:0;white-space:pre}
     .line-number{flex:0 0 4em;padding:0 6px;text-align:right;color:var(--vscode-editorLineNumber-foreground);user-select:none}
     .line-content{min-width:0;overflow-x:auto;padding:0 8px}
-    .diff-add .diff-cell,.unified-row.diff-add{background:var(--vscode-diffEditor-insertedLineBackground,rgba(46,160,67,.18));box-shadow:inset 2px 0 0 var(--vscode-testing-iconPassed,#3fb950)}
-    .diff-remove .diff-cell,.unified-row.diff-remove{background:var(--vscode-diffEditor-removedLineBackground,rgba(248,81,73,.18));box-shadow:inset 2px 0 0 var(--vscode-errorForeground,#f85149)}
+    .diff-add .diff-cell,.unified-row.diff-add{background:color-mix(in srgb,var(--vx-success) 14%,var(--vscode-editor-background))}
+    .diff-remove .diff-cell,.unified-row.diff-remove{background:color-mix(in srgb,var(--vx-danger) 14%,var(--vscode-editor-background))}
     .unified-row{display:flex;white-space:pre}
     .unified-prefix{flex:0 0 1.5em;text-align:center;color:var(--tf-muted)}
     .unified-number{flex:0 0 5em;color:var(--vscode-editorLineNumber-foreground);text-align:right;padding-right:6px}
@@ -109,30 +107,30 @@ export function buildAgentHtml(): string {
     .diff-row+.diff-row,.unified-row+.unified-row{border-top:1px solid transparent}
     .meta-row{display:flex;align-items:center;gap:8px;min-height:22px;margin:4px 0 2px}
     .model-badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;padding:2px 10px;border-radius:999px;border:1px solid var(--tf-border);color:var(--tf-muted);font-family:var(--vscode-editor-font-family)}
-    .model-badge::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--vscode-testing-iconPassed,#3fb950)}
-    .model-badge.fallback{color:var(--vscode-editorWarning-foreground,#cca700);border-color:var(--vscode-editorWarning-foreground,#cca700)}
-    .model-badge.fallback::before{background:var(--vscode-editorWarning-foreground,#cca700)}
-    .card{margin:12px 0;border:1px solid var(--tf-border);border-radius:var(--tf-radius);background:var(--tf-card);overflow:hidden}
+    .model-badge::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--vx-success)}
+    .model-badge.fallback{color:var(--vx-warning);border-color:var(--vx-warning)}
+    .model-badge.fallback::before{background:var(--vx-warning)}
+    .card{margin:12px 0;border:1px solid var(--vx-line);border-radius:12px;background:var(--tf-card);overflow:hidden}
     .card-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--tf-border)}
     .card-title{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--tf-muted);margin-right:auto}
-    .pill{display:inline-flex;align-items:center;gap:5px;padding:1px 9px;border-radius:999px;font-size:11px;font-weight:600;border:1px solid var(--tf-border);white-space:nowrap}
-    .pill.ok{color:var(--vscode-testing-iconPassed,#3fb950);border-color:currentColor}
-    .pill.bad{color:var(--vscode-errorForeground,#f85149);border-color:currentColor}
-    .pill.warn{color:var(--vscode-editorWarning-foreground,#cca700);border-color:currentColor}
-    .pill.info{color:var(--vscode-textLink-foreground);border-color:currentColor}
+    .pill{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border:1px solid var(--vx-line);border-radius:999px;background:var(--vx-raised);font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
+    .pill::before{content:"";width:6px;height:6px;flex:none;border-radius:50%;background:currentColor}
+    .pill.ok{color:var(--vx-success)}
+    .pill.bad{color:var(--vx-danger)}
+    .pill.warn{color:var(--vx-warning)}
+    .pill.info{color:var(--vx-violet-text)}
     .pill.muted{color:var(--tf-muted)}
-    .verify-card{border-left:3px solid var(--tf-border)}
-    .verify-card.passed{border-left-color:var(--vscode-testing-iconPassed,#3fb950)}
-    .verify-card.failed{border-left-color:var(--vscode-errorForeground,#f85149)}
-    .verify-card.running,.verify-card.fixing{border-left-color:var(--tf-accent)}
+    .verify-card{border:1px solid var(--vx-line);border-radius:12px}
     .verify-steps{list-style:none;margin:0;padding:6px 12px 10px}
-    .verify-step{display:grid;grid-template-columns:22px 1fr;gap:6px;padding:5px 0;align-items:start}
+    .verify-step{display:grid;grid-template-columns:22px minmax(0,1fr);gap:6px;padding:5px 0;align-items:start}
     .verify-step>*{min-width:0}
     .verify-step+.verify-step{border-top:1px dashed var(--tf-border)}
-    .step-icon{font-weight:700;text-align:center}
-    .step-icon.ok{color:var(--vscode-testing-iconPassed,#3fb950)}
-    .step-icon.bad{color:var(--vscode-errorForeground,#f85149)}
-    .step-icon.run{color:var(--tf-accent);animation:tfspin 1s linear infinite;display:inline-block}
+    .step-icon{position:relative;width:14px;height:14px;justify-self:center;font-size:0}
+    .step-icon.ok{color:var(--vx-success)}
+    .step-icon.bad{color:var(--vx-danger)}
+    .step-icon.ok::before{content:"";position:absolute;left:3px;top:2px;width:7px;height:4px;border-left:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg)}
+    .step-icon.bad::before{content:"!";position:absolute;inset:0;color:var(--vx-danger);font-size:12px;font-weight:700;text-align:center}
+    .step-icon.run::before{content:"";position:absolute;inset:1px;border:2px solid var(--vx-violet-text);border-right-color:transparent;border-radius:50%;animation:tfspin 1s linear infinite}
     .step-main{min-width:0}
     .step-text{font-weight:500}
     .step-cmd{display:block;margin-top:2px;font-family:var(--vscode-editor-font-family);font-size:11.5px;color:var(--tf-muted);overflow-wrap:anywhere}
@@ -147,10 +145,10 @@ export function buildAgentHtml(): string {
     .passport-path{font-family:var(--vscode-editor-font-family);overflow-wrap:anywhere}
     .passport-notes{color:var(--tf-muted)}
     .passport-flag{display:block;margin-top:3px}
-    .passport-flag.high{color:var(--vscode-errorForeground,#f85149)}
-    .passport-flag.medium{color:var(--vscode-editorWarning-foreground,#cca700)}
-    .num-add{color:var(--vscode-testing-iconPassed,#3fb950)}
-    .num-del{color:var(--vscode-errorForeground,#f85149)}
+    .passport-flag.high{color:var(--vx-danger)}
+    .passport-flag.medium{color:var(--vx-warning)}
+    .num-add{color:var(--vx-success)}
+    .num-del{color:var(--vx-danger)}
     #probe-row{margin:0 0 12px;padding:10px 12px;border:1px solid var(--tf-border);border-radius:var(--tf-radius);background:var(--tf-card)}
     #probe-row[hidden]{display:none}
     #probe{display:block;width:100%;margin:0 0 6px;padding:6px 10px;color:var(--vscode-input-foreground);background:var(--vscode-input-background);border:1px solid var(--vscode-input-border,var(--tf-border));border-radius:6px;font-family:var(--vscode-editor-font-family);font-size:12px}
@@ -160,28 +158,27 @@ export function buildAgentHtml(): string {
     .card-note{margin:0;padding:8px 12px;color:var(--tf-muted);font-size:12px;border-bottom:1px solid var(--tf-border)}
     .future-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:10px 12px}
     .future-grid>*{min-width:0}
-    .future-card{min-width:0;padding:10px 12px;border:1px solid var(--tf-border);border-radius:6px;background:var(--vscode-editor-background)}
+    .future-card{min-width:0;padding:10px 12px;border:1px solid var(--vx-line);border-radius:12px;background:var(--vscode-editor-background)}
     .future-card>*{min-width:0}
-    .future-card.chosen{border-color:var(--tf-accent);box-shadow:inset 3px 0 0 var(--tf-accent)}
     .future-title{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:6px;font-weight:600}
-    .future-letter{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;font-size:11px;font-weight:700;color:var(--vscode-badge-foreground);background:var(--vscode-badge-background)}
+    .future-letter{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border:1px solid var(--vx-line);border-radius:5px;font-size:11px;font-weight:700;color:var(--vx-violet-text);background:var(--vx-raised)}
     .future-text{margin:0 0 6px;overflow-wrap:anywhere}
     .future-tradeoff{margin:0 0 8px;color:var(--tf-muted);font-size:12px;overflow-wrap:anywhere}
     .future-label{display:block;margin-top:4px;color:var(--tf-muted);font-size:11.5px;overflow-wrap:anywhere}
-    .future-error{display:block;margin-top:4px;color:var(--vscode-errorForeground);font-size:11.5px;overflow-wrap:anywhere}
+    .future-error{display:block;margin-top:4px;color:var(--vx-danger);font-size:11.5px;overflow-wrap:anywhere}
     .compare-scroll{overflow-x:auto}
     .compare-table{width:100%;border-collapse:collapse;font-size:12px}
     .compare-table th,.compare-table td{padding:7px 12px;text-align:left;vertical-align:top;border-bottom:1px solid var(--tf-border);overflow-wrap:anywhere}
     .compare-table th{font-size:11px;font-weight:600;color:var(--tf-muted)}
     .compare-table tr:last-child td{border-bottom:none}
-    .compare-table td.better{font-weight:600;color:var(--vscode-testing-iconPassed,#3fb950);background:var(--vscode-diffEditor-insertedLineBackground,rgba(46,160,67,.12))}
+    .compare-table td.better{font-weight:600;color:var(--vx-success);background:color-mix(in srgb,var(--vx-success) 12%,var(--vscode-editor-background))}
     .compare-actions{display:flex;flex-wrap:wrap;gap:6px}
     .probe-output{margin:0;padding:8px 12px;max-height:180px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font-family:var(--vscode-editor-font-family);font-size:11.5px;border-top:1px solid var(--tf-border)}
     .future-files{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px}
     .future-files .file-nav{width:auto}
     .future-diff{border-top:1px solid var(--tf-border);overflow:auto;max-height:520px}
     .future-diff .review-header{position:static}
-    .regret-card{border-left:3px solid var(--vscode-editorWarning-foreground,#cca700)}
+    .regret-card{border:1px solid var(--vx-line);border-radius:12px}
     .regret-heading{padding:10px 12px 0;font-weight:600}
     .regret-list{margin:4px 0 0;padding:0 12px 4px 30px}
     .regret-list li{overflow-wrap:anywhere}
@@ -190,52 +187,56 @@ export function buildAgentHtml(): string {
     [hidden]{display:none!important}
     .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
     .brand{display:flex;align-items:center;gap:10px;margin-bottom:14px}
-    .logo{flex:none;display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;color:#fff;background:var(--tf-gradient);box-shadow:0 3px 10px color-mix(in srgb,var(--tf-accent) 35%,transparent)}
+    .logo{flex:none;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;color:var(--vx-violet)}
     .brand-text{display:flex;flex:1 1 0;flex-direction:column;min-width:0}
-    .brand-name{font-size:17px;font-weight:700;line-height:1.2;letter-spacing:-.01em}
+    .brand-name{font-size:17px;font-weight:600;line-height:1.2}
     .brand-tagline{color:var(--tf-muted);font-size:11.5px}
     .platform-pill{flex:none;padding:2px 9px;border:1px solid var(--tf-border);border-radius:999px;color:var(--tf-muted);font-size:10.5px;white-space:nowrap}
-    .task-box{border:1px solid var(--vscode-input-border,var(--tf-border));border-radius:14px;background:var(--vscode-input-background);overflow:hidden;transition:border-color .12s,box-shadow .12s}
-    .task-box:focus-within{border-color:var(--tf-accent);box-shadow:0 0 0 2px var(--tf-tint)}
+    .task-box{border:1px solid var(--vx-line);border-radius:12px;background:var(--vscode-input-background);overflow:hidden;transition:border-color .12s}
+    .task-box:focus-within{border-color:var(--vx-violet)}
     .task-box textarea{min-height:96px;margin:0;padding:12px 14px 6px;border:none;border-radius:0;background:transparent;resize:vertical}
     .task-box textarea:focus,.task-box textarea:focus-visible{border:none;outline:none}
     .task-footer{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:6px 8px 8px 10px}
     .chips{display:flex;flex:1 1 180px;flex-wrap:wrap;gap:6px;min-width:0}
     button.chip{padding:3px 10px;border:1px solid var(--tf-border);border-radius:999px;color:var(--vscode-foreground);background:transparent;font-size:11.5px}
-    button.chip:hover:not(:disabled),button.chip[aria-expanded="true"]{border-color:var(--tf-accent);background:var(--tf-tint)}
+    button.chip:hover:not(:disabled),button.chip[aria-expanded="true"]{border-color:var(--vx-violet);background:var(--vx-raised)}
     .task-send{display:flex;gap:6px;margin-left:auto}
-    #submit{display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:10px;font-weight:600}
+    #submit{display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:8px;font-weight:600}
     #probe-row{margin-top:10px}
-    #apply:disabled{color:var(--vscode-button-secondaryForeground);background:var(--vscode-button-secondaryBackground)}
+    #apply:disabled{color:var(--vscode-foreground);background:transparent;border:1px solid var(--vx-line)}
     .mode-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:6px;margin:12px 0}
-    button.mode{display:grid;grid-template-columns:28px minmax(0,1fr) auto;align-items:center;gap:8px;width:100%;padding:8px 10px;text-align:left;color:var(--vscode-foreground);background:var(--tf-card);border:1px solid var(--tf-border);border-radius:10px}
-    button.mode:hover{background:var(--vscode-list-hoverBackground);border-color:var(--tf-accent)}
-    .mode-icon{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;color:var(--vscode-textLink-foreground);background:var(--tf-tint);font-size:14px}
+    .mode-list>*{min-width:0}
+    button.mode{display:grid;grid-template-columns:28px minmax(0,1fr) auto;align-items:center;gap:8px;width:100%;padding:8px 10px;text-align:left;color:var(--vscode-foreground);background:var(--tf-card);border:1px solid var(--vx-line);border-radius:12px}
+    button.mode:hover{background:var(--vx-raised)}
+    .mode-icon{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;color:var(--vx-violet-text);background:var(--vx-raised);font-size:9px;font-weight:700;letter-spacing:.02em}
     .mode-text{display:flex;flex-direction:column;min-width:0}
     .mode-name{font-weight:600}
     .mode-sub{overflow:hidden;color:var(--tf-muted);font-size:11px;font-weight:400;text-overflow:ellipsis;white-space:nowrap}
-    .new-badge{padding:1px 6px;border-radius:999px;color:#fff;background:var(--tf-gradient);font-size:10px;font-weight:700}
-    .stepper{margin:12px 0;padding:10px 12px;border:1px solid var(--tf-border);border-radius:12px;background:var(--tf-card)}
+    .new-badge{padding:1px 6px;border:1px solid var(--vx-line);border-radius:999px;color:var(--vx-violet-text);background:var(--vx-raised);font-size:10px;font-weight:700}
+    .stepper{margin:12px 0;padding:10px 12px;border:1px solid var(--vx-line);border-radius:12px;background:var(--tf-card)}
     .stepper-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
     .progress-track{height:5px;margin-bottom:8px;border-radius:999px;background:var(--tf-border);overflow:hidden}
-    .progress-fill{height:100%;border-radius:999px;background:var(--tf-gradient);transition:width .3s ease}
-    .progress-fill.running{background-image:linear-gradient(110deg,var(--tf-accent) 30%,color-mix(in srgb,#fff 45%,var(--tf-accent)) 50%,var(--tf-accent2) 70%);background-size:200% 100%;animation:tfshimmer 1.4s linear infinite}
+    .progress-fill{height:100%;border-radius:999px;background:var(--vx-violet);transition:width .3s ease}
+    .progress-fill.running{background:var(--vx-violet-text)}
     .progress-fill.failed{background:var(--tf-bad)}
-    @keyframes tfshimmer{to{background-position:-200% 0}}
     .step-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:2px 12px;margin:0;padding:0;list-style:none}
-    .run-step{display:grid;grid-template-columns:18px minmax(0,1fr) auto;align-items:center;gap:6px;padding:3px 0;color:var(--tf-muted);font-size:12px}
-    .run-step.active{color:var(--vscode-foreground);font-weight:600}
+    .run-step{display:grid;grid-template-columns:18px minmax(0,1fr) auto;align-items:center;gap:6px;padding:3px 0;color:var(--vscode-descriptionForeground);font-size:12px}
+    .run-step>*{min-width:0}
+    .run-step.active{color:var(--vx-violet-text);font-weight:600}
     .run-step.done{color:var(--vscode-foreground)}
     .run-step-icon{text-align:center;font-weight:700}
-    .run-step.done .run-step-icon{color:var(--tf-ok)}
-    .run-step.failed .run-step-icon{color:var(--tf-bad)}
-    .run-step.active .run-step-icon{display:inline-block;color:var(--tf-accent);animation:tfspin 1s linear infinite}
+    .run-step.done .run-step-icon{color:var(--vx-success)}
+    .run-step.failed .run-step-icon{color:var(--vx-danger)}
+    .run-step-icon{position:relative;width:14px;height:14px;justify-self:center;font-size:0}
+    .run-step.pending .run-step-icon::before,.run-step.skipped .run-step-icon::before{content:"";position:absolute;inset:2px;border:1px solid var(--vscode-descriptionForeground);border-radius:50%}
+    .run-step.active .run-step-icon::before{content:"";position:absolute;inset:1px;border:2px solid var(--vx-violet-text);border-right-color:transparent;border-radius:50%;animation:tfspin 1s linear infinite}
+    .run-step.done .run-step-icon::before{content:"";position:absolute;left:3px;top:2px;width:7px;height:4px;border-left:2px solid var(--vx-success);border-bottom:2px solid var(--vx-success);transform:rotate(-45deg)}
+    .run-step.failed .run-step-icon::before{content:"!";position:absolute;inset:0;color:var(--vx-danger);font-size:12px;font-weight:700;text-align:center}
     .run-step-time{color:var(--tf-muted);font-size:11px;font-weight:400;font-variant-numeric:tabular-nums}
     .dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin:12px 0}
     .dash-grid>*{min-width:0}
-    .mini-card{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:0 8px;min-width:0;padding:9px 12px;border:1px solid var(--tf-border);border-radius:10px;background:var(--tf-card)}
+    .mini-card{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:0 8px;min-width:0;padding:9px 12px;border:1px solid var(--vx-line);border-radius:12px;background:var(--tf-card)}
     .mini-card>*{min-width:0}
-    .mini-card.warning{border-color:var(--tf-warn)}
     .mini-label{grid-column:1/-1;color:var(--tf-muted);font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
     .mini-value{min-width:0;overflow-wrap:anywhere;font-weight:600}
     .context-budget-card{display:block}
@@ -243,17 +244,15 @@ export function buildAgentHtml(): string {
     #context-progress{width:100%;min-width:0}
     .mini-note{grid-column:1/-1;color:var(--tf-muted);font-size:11.5px;overflow-wrap:anywhere}
     .mini-card.warning .mini-note{color:var(--tf-warn)}
-    button.link-button{padding:0 4px;color:var(--vscode-textLink-foreground);background:transparent;border:none}
+    button.link-button{padding:0 4px;color:var(--vx-violet-text);background:transparent;border:none}
     button.link-button:hover:not(:disabled){background:transparent;text-decoration:underline}
     .verify-hero{display:grid;grid-template-columns:38px minmax(0,1fr);align-items:center;gap:10px;padding:12px}
     .verify-hero>*{min-width:0}
-    .verify-mark{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;color:#fff;background:var(--tf-muted);font-size:18px;font-weight:700}
-    .verify-card.passed .verify-mark{background:var(--tf-ok)}
-    .verify-card.failed .verify-mark{background:var(--tf-bad)}
-    .verify-card.running .verify-mark,.verify-card.fixing .verify-mark{background:var(--tf-gradient)}
+    .verify-mark{display:inline-flex;align-items:center}
+    .verify-mark::before{content:"";width:6px;height:6px;flex:none;margin-right:6px;border-radius:50%;background:currentColor}
     .verify-title{display:block;font-size:15px;font-weight:700}
-    .verify-card.passed .verify-title{color:var(--tf-ok)}
-    .verify-card.failed .verify-title{color:var(--tf-bad)}
+    .verify-card.passed .verify-title{color:var(--vx-success)}
+    .verify-card.failed .verify-title{color:var(--vx-danger)}
     .verify-sub{display:block;color:var(--tf-muted);font-size:12px;overflow-wrap:anywhere}
     .card-details{border-top:1px solid var(--tf-border)}
     .card-details>summary{cursor:pointer;padding:7px 12px;color:var(--tf-muted);font-size:12px}
@@ -270,18 +269,18 @@ export function buildAgentHtml(): string {
     .future-card .compare-actions button{flex:1 1 auto}
     .history-body{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px}
     .history-files{min-width:0;color:var(--tf-muted);font-size:12px;overflow-wrap:anywhere}
-    .status-block{margin:12px 0;padding:10px 12px;border:1px solid var(--tf-border);border-radius:var(--tf-radius);background:var(--tf-card)}
+    .status-block{margin:12px 0;padding:10px 12px;border:1px solid var(--vx-line);border-radius:12px;background:var(--tf-card)}
     .connection-row,.status-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
     .connection-row{font-size:12px;overflow-wrap:anywhere}
     .connection-dot{width:8px;height:8px;border-radius:50%;background:var(--tf-muted);flex:none}
     .connection-dot.connected{background:var(--tf-ok)}
     .connection-dot.disconnected{background:var(--tf-bad)}
     .model-chain{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin:8px 0;color:var(--tf-muted);font-size:11px}
-    .model-chip{padding:2px 7px;border:1px solid var(--tf-border);border-radius:999px}
+    .model-chip{padding:2px 7px;border:1px solid var(--vx-line);border-radius:999px}
     .model-chip.active{border-color:var(--tf-accent);background:var(--tf-tint);color:var(--vscode-foreground);font-weight:600}
     .fallback-label{font-size:10px}
     .status-actions{margin-top:8px}
-    .status-actions #cancel{color:var(--vscode-button-foreground);background:var(--tf-bad);border-color:transparent}
+    .status-actions #cancel{color:#fff;background:var(--vx-danger);border-color:transparent}
     .status-actions #cancel:hover{filter:brightness(.9)}
     .review-actions{flex-wrap:wrap}
     .review-heading{flex-wrap:wrap}
@@ -310,7 +309,7 @@ export function buildAgentHtml(): string {
 </head>
 <body>
   <header class="brand">
-    <span class="logo" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M13.6 2.2a.75.75 0 0 1 .72.95L12.4 9.75h6.1a.75.75 0 0 1 .58 1.23l-8.6 10.55a.75.75 0 0 1-1.3-.67l1.92-6.61H5.5a.75.75 0 0 1-.58-1.23L13.02 2.47a.75.75 0 0 1 .58-.27Z"/></svg></span>
+    <span class="logo" aria-hidden="true"><svg width="16" height="16" viewBox="12 12 40 44" fill="var(--vx-violet)"><path d="M15 15 L26 15 L32 34 L39 15 L49 15 L37.5 38 L43 38 L27 54 L30.5 41 L25 41 Z"/></svg></span>
     <span class="brand-text"><span class="brand-name">Voltix</span><span class="brand-tagline">Explore. Experiment. Choose.</span></span>
     <span class="platform-pill">runs on TrueForge</span>
   </header>
@@ -336,7 +335,7 @@ export function buildAgentHtml(): string {
           <button id="show-risks" class="chip" type="button">Show risks of this change</button>
         </div>
         <div class="task-send">
-          <button id="submit" type="submit">Send <span aria-hidden="true">↑</span></button>
+          <button id="submit" type="submit">Send</button>
         </div>
       </div>
     </div>
@@ -351,10 +350,10 @@ export function buildAgentHtml(): string {
     </div>
   </form>
   <nav class="mode-list" aria-label="Voltix modes">
-    <button class="mode" type="button" data-action="mode-agent"><span class="mode-icon" aria-hidden="true">✦</span><span class="mode-text"><span class="mode-name">Agent Mode</span><span class="mode-sub">Plan · Execute · Verify</span></span></button>
-    <button class="mode" type="button" data-action="mode-futures"><span class="mode-icon" aria-hidden="true">⑂</span><span class="mode-text"><span class="mode-name">Parallel Futures</span><span class="mode-sub">Build and compare two designs</span></span><span class="new-badge">New</span></button>
-    <button class="mode" type="button" data-action="mode-impact"><span class="mode-icon" aria-hidden="true">◎</span><span class="mode-text"><span class="mode-name">Impact Radar</span><span class="mode-sub">Risk and blast radius</span></span></button>
-    <button class="mode" type="button" data-action="mode-history"><span class="mode-icon" aria-hidden="true">↺</span><span class="mode-text"><span class="mode-name">History</span><span class="mode-sub">Undo the last apply</span></span></button>
+    <button class="mode" type="button" data-action="mode-agent"><span class="mode-icon" aria-hidden="true">AG</span><span class="mode-text"><span class="mode-name">Agent Mode</span><span class="mode-sub">Plan · Execute · Verify</span></span></button>
+    <button class="mode" type="button" data-action="mode-futures"><span class="mode-icon" aria-hidden="true">2X</span><span class="mode-text"><span class="mode-name">Parallel Futures</span><span class="mode-sub">Build and compare two designs</span></span><span class="new-badge">New</span></button>
+    <button class="mode" type="button" data-action="mode-impact"><span class="mode-icon" aria-hidden="true">IR</span><span class="mode-text"><span class="mode-name">Impact Radar</span><span class="mode-sub">Risk and blast radius</span></span></button>
+    <button class="mode" type="button" data-action="mode-history"><span class="mode-icon" aria-hidden="true">H</span><span class="mode-text"><span class="mode-name">History</span><span class="mode-sub">Undo the last apply</span></span></button>
   </nav>
   <section id="stepper" class="stepper" aria-label="Run progress" hidden></section>
   <div id="status" role="status" aria-live="polite"></div>
@@ -644,7 +643,7 @@ export function buildAgentHtml(): string {
       const head = makeElement('div', 'stepper-head');
       head.appendChild(makeElement('span', 'card-title', run.mode === 'futures' ? 'Futures run' : 'Agent run'));
       if (!run.finished) head.appendChild(makeElement('span', 'pill info', 'Running'));
-      else if (run.outcome === 'ready') head.appendChild(makeElement('span', 'pill ok', '✓ Complete'));
+      else if (run.outcome === 'ready') head.appendChild(makeElement('span', 'pill ok', 'Complete'));
       else head.appendChild(makeElement('span', 'pill ' + (run.outcome === 'cancelled' ? 'muted' : 'bad'), run.outcome === 'cancelled' ? 'Cancelled' : 'Failed'));
       stepper.appendChild(head);
       const finishedSteps = run.steps.filter(step => step.status === 'done' || step.status === 'skipped').length;
@@ -662,8 +661,7 @@ export function buildAgentHtml(): string {
       const list = makeElement('ol', 'step-list');
       run.steps.forEach(step => {
         const item = makeElement('li', 'run-step ' + step.status);
-        const icon = { done: '✓', active: '◌', failed: '✗', skipped: '–', pending: '○' }[step.status];
-        item.appendChild(makeElement('span', 'run-step-icon', icon));
+        item.appendChild(makeElement('span', 'run-step-icon', ''));
         item.appendChild(makeElement('span', '', step.label));
         const elapsed = step.elapsed + (step.startedAt !== null ? now - step.startedAt : 0);
         const showTime = step.visited && !step.replayed && step.key !== 'ready' && elapsed > 0;
@@ -731,12 +729,12 @@ export function buildAgentHtml(): string {
       if (result) {
         const item = result.evidence;
         const list = makeElement('dl', 'evidence-list');
-        if (item.tests.ran) evidenceRow(list, 'Tests', (item.tests.passed ? '✓ Pass · ' : '✗ Fail · ') + item.tests.summary, item.tests.passed ? 'good' : 'bad');
+        if (item.tests.ran) evidenceRow(list, 'Tests', (item.tests.passed ? 'Pass · ' : 'Fail · ') + item.tests.summary, item.tests.passed ? 'good' : 'bad');
         else evidenceRow(list, 'Tests', 'Not run');
         evidenceRow(list, 'Files', String(item.filesChanged.length));
         evidenceRow(list, 'Lines', '+' + item.added + ' / −' + item.removed);
         evidenceRow(list, 'Fix rounds', String(item.fixRounds));
-        if (item.probe) evidenceRow(list, 'Probe', item.probe.timedOut ? '✗ Timed out' : item.probe.passed ? '✓ OK' : '✗ Failed (exit ' + item.probe.exitCode + ')', item.probe.passed ? 'good' : 'bad');
+        if (item.probe) evidenceRow(list, 'Probe', item.probe.timedOut ? 'Timed out' : item.probe.passed ? 'OK' : 'Failed (exit ' + item.probe.exitCode + ')', item.probe.passed ? 'good' : 'bad');
         else evidenceRow(list, 'Probe', 'Not run');
         evidenceRow(list, 'Time', formatDuration(item.durationMs));
         card.appendChild(list);
@@ -757,7 +755,7 @@ export function buildAgentHtml(): string {
       view.disabled = !(result && result.changes.length);
       actions.appendChild(view);
       if (futures.chosen) {
-        if (futures.chosen.futureId === id) actions.appendChild(makeElement('span', 'pill ok', '✓ Chosen'));
+        if (futures.chosen.futureId === id) actions.appendChild(makeElement('span', 'pill ok', 'Chosen'));
       } else {
         const choose = makeElement('button', 'primary', 'Choose this future');
         choose.type = 'button';
@@ -774,7 +772,7 @@ export function buildAgentHtml(): string {
       const card = makeElement('section', 'card');
       const head = makeElement('div', 'card-head');
       head.appendChild(makeElement('span', 'card-title', 'Compare evidence'));
-      head.appendChild(makeElement('span', 'pill muted wide-only', '✓ marks the better value'));
+      head.appendChild(makeElement('span', 'pill muted wide-only', 'Better value'));
       head.appendChild(actionButton('Compare in editor', 'open-compare', 'secondary narrow-only'));
       card.appendChild(head);
       const scroll = makeElement('div', 'compare-scroll wide-only');
@@ -785,8 +783,8 @@ export function buildAgentHtml(): string {
       futures.rows.forEach(row => {
         const tr = makeElement('tr');
         tr.appendChild(makeElement('th', '', row.label));
-        tr.appendChild(makeElement('td', row.better === 'A' ? 'better' : '', (row.better === 'A' ? '✓ ' : '') + row.a));
-        tr.appendChild(makeElement('td', row.better === 'B' ? 'better' : '', (row.better === 'B' ? '✓ ' : '') + row.b));
+        tr.appendChild(makeElement('td', row.better === 'A' ? 'better' : '', (row.better === 'A' ? 'Better · ' : '') + row.a));
+        tr.appendChild(makeElement('td', row.better === 'B' ? 'better' : '', (row.better === 'B' ? 'Better · ' : '') + row.b));
         table.appendChild(tr);
       });
       scroll.appendChild(table);
@@ -890,20 +888,20 @@ export function buildAgentHtml(): string {
       const last = events.length ? events[events.length - 1] : null;
       const phase = last ? last.phase : 'idle';
       const view = {
-        idle: ['–', 'Not verified yet', 'Tests run in a sandbox after the agent proposes changes.'],
-        skipped: ['–', 'Not verified', last && last.summary ? last.summary : 'No test command was available.'],
-        running: ['◌', 'Verifying in sandbox', last ? last.summary : ''],
-        fixing: ['↻', 'Agent is fixing failures', last ? last.summary : ''],
-        passed: ['✓', 'Verified', last ? last.summary : ''],
-        failed: ['✗', 'Tests failing', last ? last.summary : ''],
+        idle: ['muted', 'NOT VERIFIED', 'Not verified yet', 'Tests run in a sandbox after the agent proposes changes.'],
+        skipped: ['muted', 'NOT VERIFIED', 'Not verified', last && last.summary ? last.summary : 'No test command was available.'],
+        running: ['info', 'VERIFYING', 'Verifying in sandbox', last ? last.summary : ''],
+        fixing: ['info', 'FIXING', 'Agent is fixing failures', last ? last.summary : ''],
+        passed: ['ok', 'VERIFIED', 'Verified', last ? last.summary : ''],
+        failed: ['bad', 'FAILED', 'Tests failing', last ? last.summary : ''],
       }[phase];
       const card = makeElement('section', 'card verify-card ' + phase);
       card.setAttribute('aria-label', 'Verification');
       const hero = makeElement('div', 'verify-hero');
-      hero.appendChild(makeElement('span', 'verify-mark', view[0]));
+      hero.appendChild(makeElement('span', 'pill verify-mark ' + view[0], view[1]));
       const text = makeElement('div');
-      text.appendChild(makeElement('span', 'verify-title', view[1]));
-      text.appendChild(makeElement('span', 'verify-sub', view[2]));
+      text.appendChild(makeElement('span', 'verify-title', view[2]));
+      text.appendChild(makeElement('span', 'verify-sub', view[3]));
       const fixes = events.filter(item => item.phase === 'fixing').length;
       if (fixes) text.appendChild(makeElement('span', 'verify-sub', fixes + ' automatic fix round' + (fixes > 1 ? 's' : '')));
       hero.appendChild(text);
@@ -916,9 +914,9 @@ export function buildAgentHtml(): string {
         events.forEach((item, index) => {
           if (item.phase === 'running' && index < events.length - 1) return;
           const step = makeElement('li', 'verify-step');
-          const icon = item.phase === 'passed' ? ['ok', '✓'] : item.phase === 'failed' ? ['bad', '✗'] :
-            item.phase === 'fixing' ? ['run', '↻'] : item.phase === 'running' ? ['run', '◌'] : ['', '–'];
-          step.appendChild(makeElement('span', 'step-icon ' + icon[0], icon[1]));
+          const iconClass = item.phase === 'passed' ? 'ok' : item.phase === 'failed' ? 'bad' :
+            item.phase === 'fixing' || item.phase === 'running' ? 'run' : '';
+          step.appendChild(makeElement('span', 'step-icon ' + iconClass, ''));
           const main = makeElement('div', 'step-main');
           const who = item.source === 'agent' ? 'Agent ran tests' : item.phase === 'fixing' ? 'Voltix sent failures back' : 'Voltix ran tests';
           main.appendChild(makeElement('span', 'step-text', who + ': ' + (item.summary || '')));
@@ -976,7 +974,7 @@ export function buildAgentHtml(): string {
       stats.appendChild(makeElement('span', 'pill ' + (passport.testsTouched ? 'ok' : 'warn'), passport.testsTouched ? 'Tests included' : 'No tests changed'));
       if (passport.verification) {
         stats.appendChild(makeElement('span', 'pill ' + (passport.verification.passed ? 'ok' : 'bad'),
-          passport.verification.passed ? '✓ ' + passport.verification.summary : '✗ ' + passport.verification.summary));
+          passport.verification.passed ? 'Verified: ' + passport.verification.summary : 'Failed: ' + passport.verification.summary));
       }
       card.appendChild(stats);
       const fileDetails = makeElement('details', 'card-details');
@@ -1004,7 +1002,7 @@ export function buildAgentHtml(): string {
         if (file.symbols && file.symbols.length) parts.push('defines ' + file.symbols.join(', '));
         if (file.dependents && file.dependents.length) parts.push('imported by ' + file.dependents.length + ' file' + (file.dependents.length === 1 ? '' : 's'));
         notes.appendChild(document.createTextNode(parts.join(' · ') || '—'));
-        (file.flags || []).forEach(flag => notes.appendChild(makeElement('span', 'passport-flag ' + flag.level, '⚠ ' + flag.message)));
+        (file.flags || []).forEach(flag => notes.appendChild(makeElement('span', 'passport-flag ' + flag.level, flag.level.toUpperCase() + ' RISK: ' + flag.message)));
         row.appendChild(notes);
         table.appendChild(row);
       });
@@ -1857,7 +1855,7 @@ export function buildAgentHtml(): string {
         if (!state.modelChain.includes(message.model)) state.modelChain.unshift(message.model);
         renderModelChain();
         modelCard.classList.toggle('warning', Boolean(message.fallbackFrom));
-        modelNote.textContent = message.fallbackFrom ? '⚠ Fallback: ' + message.fallbackFrom + ' failed' : 'Selected model';
+        modelNote.textContent = message.fallbackFrom ? 'Fallback: ' + message.fallbackFrom + ' failed' : 'Selected model';
       } else if (message.type === 'model_chain') {
         state.modelChain = message.models || [];
         state.activeModel = message.active || state.activeModel;

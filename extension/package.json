@@ -4,6 +4,7 @@
   "description": "Voltix is a transparent, surgical AI coding agent.",
   "version": "1.0.0",
   "publisher": "trueforge",
+  "icon": "media/icon.png",
   "engines": { "vscode": "^1.95.0" },
   "categories": ["Programming Languages", "AI"],
   "activationEvents": ["onStartupFinished", "onCommand:voltix.openPanel", "onCommand:voltix.inlineEdit"],
