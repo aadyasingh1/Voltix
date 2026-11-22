@@ -2,9 +2,10 @@ import { randomUUID, createHash } from 'node:crypto';
 import type { PendingChange } from '../../../shared/types';
 import { parseHunks } from './hunkParser';
 
-const changes = new Map<string, PendingChange>();
+/** An isolated set of proposed changes. Nothing in a store is on disk until it is applied. */
+export class PendingChangeStore {
+  private readonly changes = new Map<string, PendingChange>();
 
-export const PendingChanges = {
   add(input: Omit<PendingChange, 'id' | 'hunks' | 'originalHash' | 'fileDecision'>): PendingChange {
     const id = randomUUID();
     const hunks = parseHunks(input.originalContent, input.proposedContent, id);
@@ -15,41 +16,72 @@ export const PendingChanges = {
       hunks,
       fileDecision: null,
     };
-    changes.set(id, change);
+    this.changes.set(id, change);
     return change;
-  },
-  getAll: () => [...changes.values()],
-  get: (id: string) => changes.get(id),
-  clear: () => changes.clear(),
-  remove: (id: string) => changes.delete(id),
-  acceptHunk(changeId: string, hunkId: string) {
-    const change = changes.get(changeId);
+  }
+
+  /** Takes over a change from another store, keeping its ids and original-file hash. */
+  adopt(change: PendingChange): PendingChange {
+    this.changes.set(change.id, change);
+    return change;
+  }
+
+  getAll(): PendingChange[] {
+    return [...this.changes.values()];
+  }
+
+  get(id: string): PendingChange | undefined {
+    return this.changes.get(id);
+  }
+
+  clear(): void {
+    this.changes.clear();
+  }
+
+  remove(id: string): boolean {
+    return this.changes.delete(id);
+  }
+
+  acceptHunk(changeId: string, hunkId: string): void {
+    const change = this.changes.get(changeId);
     const hunk = change?.hunks.find(item => item.id === hunkId);
     if (change && hunk) {
       change.fileDecision = null;
       hunk.accepted = true;
     }
-  },
-  rejectHunk(changeId: string, hunkId: string) {
-    const change = changes.get(changeId);
+  }
+
+  rejectHunk(changeId: string, hunkId: string): void {
+    const change = this.changes.get(changeId);
     const hunk = change?.hunks.find(item => item.id === hunkId);
     if (change && hunk) {
       change.fileDecision = null;
       hunk.accepted = false;
     }
-  },
-  acceptFile(changeId: string) {
-    const change = changes.get(changeId);
+  }
+
+  removeHunk(changeId: string, hunkId: string): void {
+    const change = this.changes.get(changeId);
+    if (!change) return;
+    change.hunks = change.hunks.filter(hunk => hunk.id !== hunkId);
+  }
+
+  acceptFile(changeId: string): void {
+    const change = this.changes.get(changeId);
     if (change) {
       change.fileDecision = true;
       change.hunks.forEach(hunk => hunk.accepted = true);
     }
-  },
-  rejectFile(changeId: string) {
-    const change = changes.get(changeId);
+  }
+
+  rejectFile(changeId: string): void {
+    const change = this.changes.get(changeId);
     if (change) {
       change.fileDecision = false;
       change.hunks.forEach(hunk => hunk.accepted = false);
     }
-  },
-};
+  }
+}
+
+/** The default store: the normal review list used by Send, inline edit and Apply. */
+export const PendingChanges = new PendingChangeStore();

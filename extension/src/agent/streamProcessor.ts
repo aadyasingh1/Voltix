@@ -1,4 +1,5 @@
 import type { TrueForge } from '@truefoundry/trueforge-sdk';
+import { diffLines } from 'diff';
 import type { PanelOutboundMessage } from '../../../shared/types';
 
 export interface TurnResult {
@@ -18,13 +19,85 @@ function safePreview(value: string, limit: number): string {
     .slice(0, limit);
 }
 
+function safeSummaryValue(value: unknown): string {
+  return safePreview(String(value ?? '').replace(/\s+/g, ' ').trim(), 200);
+}
+
+export function formatToolSummary(name: string, argumentsText: string, result: string): string {
+  let args: Record<string, unknown> = {};
+  try {
+    const parsed: unknown = JSON.parse(argumentsText);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) args = parsed as Record<string, unknown>;
+  } catch {
+    return `${name} → completed`;
+  }
+  if (name === 'list_tools') {
+    return 'Discovered tools on voltix (deferred loading)';
+  }
+  if (name === 'get_tool_info') {
+    const toolName = safeSummaryValue(args.tool_name ?? args.name ?? args.tool ?? 'workspace tool');
+    return 'Loaded schema: ' + toolName;
+  }
+  if (name === 'call_tool') {
+    const innerName = safeSummaryValue(args.tool_name ?? args.name ?? args.tool ?? 'workspace tool');
+    const innerArgs = args.arguments && typeof args.arguments === 'object'
+      ? args.arguments as Record<string, unknown>
+      : args;
+    if (innerName === 'search_workspace') {
+      return "search '" + safeSummaryValue(innerArgs.query) + "'";
+    }
+    if (innerName === 'read_file') {
+      const start = Number(innerArgs.start_line) || 1;
+      const end = Number(innerArgs.end_line) || start;
+      return 'read ' + safeSummaryValue(innerArgs.path) + ' ' + start + '-' + end;
+    }
+    if (innerName === 'list_workspace_files') {
+      return 'list workspace files';
+    }
+    return innerName + ' ' + safeSummaryValue(innerArgs.path ?? innerArgs.query ?? innerArgs.command);
+  }
+  if (name === 'read_file') {
+    const file = safeSummaryValue(args.path);
+    const range = result.match(/\[Showing lines (\d+)-(\d+) of (\d+)\./);
+    if (range) return `read_file ${file} → lines ${range[1]}-${range[2]} of ${range[3]}`;
+    const onlyLines = result.match(/\[File has only (\d+) lines\.\]/);
+    if (onlyLines) return `read_file ${file} → file has ${onlyLines[1]} lines`;
+    const start = Number(args.start_line) || 1;
+    const end = Number(args.end_line) || result.split(/\r?\n/).length;
+    return `read_file ${file} → lines ${start}-${end} of ${end}`;
+  }
+  if (name === 'search_workspace') {
+    const query = safeSummaryValue(args.query);
+    const count = result.trim() === 'No matches' ? 0 : result.split(/\r?\n/).length;
+    return `search_workspace '${query}' → ${count} ${count === 1 ? 'match' : 'matches'}`;
+  }
+  if (name === 'edit_file') {
+    const file = safeSummaryValue(args.path);
+    if (!result.includes('registered for review')) return `edit_file ${file} → ${safeSummaryValue(result)}`;
+    const changes = diffLines(String(args.old_string ?? ''), String(args.new_string ?? ''));
+    const countLines = (text: string) => text.split(/\r?\n/).filter((line, index, lines) => line.length > 0 || index < lines.length - 1).length;
+    const added = changes.filter(part => part.added).reduce((sum, part) => sum + countLines(part.value), 0);
+    const removed = changes.filter(part => part.removed).reduce((sum, part) => sum + countLines(part.value), 0);
+    return `edit_file ${file} → +${added} −${removed} (proposal, nothing on disk)`;
+  }
+  if (name === 'verify_changes') {
+    const firstLine = result.split(/\r?\n/, 1)[0].replace(/^(PASSED|FAILED):\s*/, '');
+    return `verify_changes → ${safeSummaryValue(firstLine)}`;
+  }
+  if (name === 'submit_changes') {
+    return `submit_changes → ${safeSummaryValue(args.summary)} (waiting for review)`;
+  }
+  const detail = args.path ?? args.query ?? args.command;
+  return `${name}${detail === undefined ? '' : ` ${safeSummaryValue(detail)}`} → completed`;
+}
+
 export async function processTurn(
   client: TrueForge,
   sessionId: string,
   input: string,
   emit: (message: PanelOutboundMessage) => void,
   onStreamStarted?: () => void,
-  options: { deferErrors?: boolean } = {}
+  options: { deferErrors?: boolean; onApprovalRequired?: (input: { toolCallId: string; threadId: string; turnId: string; summary: string }) => void } = {}
 ): Promise<TurnResult> {
   const stream = await client.sessions.createTurnStream(sessionId, {
     input: [{ type: 'user.message', content: input }],
@@ -32,6 +105,7 @@ export async function processTurn(
   onStreamStarted?.();
 
   let full = '';
+  let turnId = '';
   let sawTerminalEvent = false;
   const callsByIndex = new Map<number, ToolCallState>();
   const callsById = new Map<string, ToolCallState>();
@@ -55,7 +129,9 @@ export async function processTurn(
   };
 
   for await (const event of stream) {
-    if (event.type === 'model.message.delta') {
+    if (event.type === 'turn.created') {
+      turnId = event.turnId;
+    } else if (event.type === 'model.message.delta') {
       const content = event.content ?? '';
       full += content;
       emit({ type: 'text_delta', content });
@@ -81,6 +157,18 @@ export async function processTurn(
     } else if (event.type === 'tool.approval_required') {
       for (const toolCall of event.toolCalls) {
         if (!startedCalls.has(toolCall.id)) emitToolRequest(toolCall.id, 'approval_required');
+        const call = callsById.get(toolCall.id);
+        let summary = 'Submit changes for human review';
+        if (call?.arguments) {
+          try {
+            const parsed = JSON.parse(call.arguments) as { summary?: string };
+            if (parsed.summary) summary = parsed.summary;
+          } catch (_) {}
+        }
+        if (call?.name === 'submit_changes') {
+          options.onApprovalRequired?.({ toolCallId: toolCall.id, threadId: event.threadId, turnId, summary });
+          emit({ type: 'approval_required', toolCallId: toolCall.id, threadId: event.threadId, turnId, summary });
+        }
       }
     } else if (event.type === 'tool.response_required') {
       for (const toolCall of event.toolCalls) {
@@ -92,7 +180,21 @@ export async function processTurn(
         type: 'tool_done',
         id: event.toolCallId,
         name: call?.name,
+        summary: call ? formatToolSummary(call.name, call.arguments, event.content) : undefined,
         resultPreview: safePreview(event.content, 500),
+      });
+    } else if (event.type === 'thread.context_compaction_finished') {
+      emit({
+        type: 'context_compacted',
+        triggerContextTokens: event.trigger.contextTokens,
+        thresholdTokens: event.trigger.thresholdTokens,
+      });
+    } else if (event.type === 'user.tool_approval') {
+      emit({
+        type: 'approval_decision',
+        toolCallId: event.toolCallId,
+        decision: event.approval.status === 'allow' ? 'allow' : 'deny',
+        reason: event.approval.status === 'deny' ? event.approval.reason : undefined,
       });
     } else if (event.type === 'turn.done') {
       sawTerminalEvent = true;

@@ -51,12 +51,31 @@ const VERIFY_COMMAND_PATTERNS = [
   /^cargo\s+test\b/,
 ];
 
+const SHELL_METACHARACTERS = /[;&|`$<>\n\r]/;
+
 export function validateVerifyCommand(command: string): string | undefined {
   const trimmed = command.trim();
   if (!trimmed) return 'Empty verification command.';
-  if (/[;&|`$<>\n\r]/.test(trimmed)) return 'Verification commands cannot chain, pipe, redirect or substitute.';
+  if (SHELL_METACHARACTERS.test(trimmed)) return 'Verification commands cannot chain, pipe, redirect or substitute.';
   if (!VERIFY_COMMAND_PATTERNS.some(pattern => pattern.test(trimmed))) {
     return 'Only test runners are allowed for verification (python -m pytest, pytest, npm test, jest, vitest, go test, cargo test).';
+  }
+  return undefined;
+}
+
+const PROBE_COMMAND_PATTERNS = [
+  /^(python3?|flask|node|pytest)(\s|$)/,
+  /^npm\s+(test(\s|$)|run\s+\S+)/,
+];
+const PROBE_OUTPUT_LIMIT = 3000;
+
+/** The behaviour probe is user-supplied, so it gets the same no-chaining rule plus its own allowlist. */
+export function validateProbeCommand(command: string): string | undefined {
+  const trimmed = command.trim();
+  if (!trimmed) return 'Empty probe command.';
+  if (SHELL_METACHARACTERS.test(trimmed)) return 'Probe commands cannot chain, pipe, redirect or substitute.';
+  if (!PROBE_COMMAND_PATTERNS.some(pattern => pattern.test(trimmed))) {
+    return 'Probe commands must start with python, python3, flask, node, pytest, npm test or npm run.';
   }
   return undefined;
 }
@@ -146,6 +165,34 @@ export async function runInSandbox(
 ): Promise<SandboxResult> {
   const invalid = validateVerifyCommand(command);
   if (invalid) throw new Error(invalid);
+  return execInSandbox(root, files, command, timeoutMs);
+}
+
+/** Runs a validated behaviour probe against a future's pending files. */
+export async function runProbeInSandbox(
+  root: string,
+  files: SandboxFile[],
+  command: string,
+  timeoutMs = 60_000
+): Promise<{ command: string; exitCode: number; passed: boolean; timedOut: boolean; output: string }> {
+  const invalid = validateProbeCommand(command);
+  if (invalid) throw new Error(invalid);
+  const result = await execInSandbox(root, files, command.trim(), timeoutMs);
+  return {
+    command: result.command,
+    exitCode: result.exitCode,
+    passed: result.passed,
+    timedOut: result.timedOut,
+    output: result.output.slice(-PROBE_OUTPUT_LIMIT),
+  };
+}
+
+async function execInSandbox(
+  root: string,
+  files: SandboxFile[],
+  command: string,
+  timeoutMs: number
+): Promise<SandboxResult> {
   const started = Date.now();
   const sandbox = createSandbox(root, files);
   try {

@@ -4,12 +4,14 @@ export function getSettings() {
   const config = vscode.workspace.getConfiguration('voltix');
   return {
     baseUrl: config.get<string>('baseUrl', 'http://localhost:8790'),
+    sessionUrlTemplate: config.get<string>('sessionUrlTemplate', '{baseUrl}/sessions/{id}'),
     model: config.get<string>('model', 'openrouter/north-mini-code'),
     fallbackModels: config.get<string[]>('fallbackModels', []),
     contextTokenBudget: config.get<number>('contextTokenBudget', 8000),
     verifyEnabled: config.get<boolean>('verify.enabled', true),
     verifyCommand: config.get<string>('verify.command', ''),
     verifyMaxFixRounds: Math.max(0, Math.min(5, config.get<number>('verify.maxFixRounds', 2))),
+    futuresProbeCommand: config.get<string>('futures.probeCommand', ''),
   };
 }
 

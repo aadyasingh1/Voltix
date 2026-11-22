@@ -13,6 +13,10 @@ export interface AppliedFile {
 
 const history: AppliedFile[][] = [];
 
+export function recordInlineAppliedFile(input: AppliedFile): void {
+  history.push([input]);
+}
+
 /** Applies accepted changes, records what was written so it can be undone, and clears applied proposals. */
 export function applyAndRecord(changes: PendingChange[]) {
   const result = applyAccepted(changes);
@@ -37,6 +41,11 @@ export function applyAndRecord(changes: PendingChange[]) {
 
 export function canUndo(): boolean {
   return history.length > 0;
+}
+
+/** Files the next undo would restore. */
+export function lastAppliedFiles(): string[] {
+  return history[history.length - 1]?.map(file => file.path) ?? [];
 }
 
 /**

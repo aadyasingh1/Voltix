@@ -19,6 +19,12 @@ export interface McpHooks {
   getPendingContent?: (absPath: string) => string | undefined;
   /** Runs a test command against the pending changes in a sandbox copy of the workspace. */
   verify?: (command: string) => Promise<string>;
+  /** Why edits are refused for the current run (planning is read-only). Undefined means allowed. */
+  editBlockedReason?: () => string | undefined;
+  /** Why run_command is refused for the current run (futures may only test in the sandbox). */
+  commandBlockedReason?: () => string | undefined;
+  /** Called after verify_changes passes when the agent submits changes for human approval. */
+  onSubmitChanges?: (summary: string) => void;
 }
 
 type ProposedChangeHandler = McpHooks['onProposedChange'];
@@ -26,7 +32,10 @@ type ProposedChangeHandler = McpHooks['onProposedChange'];
 // In stateless mode the MCP SDK requires a NEW server + transport for every HTTP request
 // (SDK 1.32.2 rejects a reused stateless transport with HTTP 500 on the second request).
 function buildServer(hooks: McpHooks): McpServer {
-  const server = new McpServer({ name: 'vscode-workspace', version: '1.0.0' });
+  const server = new McpServer({
+    name: 'Voltix workspace tools: list, search and read files in the open VS Code workspace',
+    version: '1.0.0',
+  });
 
   (server as any).tool('list_workspace_files', { pattern: z.string().optional() }, async ({ pattern }: { pattern?: string }) => {
     const root = getWorkspaceRoot();
@@ -72,6 +81,8 @@ function buildServer(hooks: McpHooks): McpServer {
     new_string: z.string(),
     reason: z.string(),
   }, async ({ path: file, old_string, new_string, reason }: { path: string; old_string: string; new_string: string; reason: string }) => {
+    const editBlocked = hooks.editBlockedReason?.();
+    if (editBlocked) return { isError: true, content: [{ type: 'text', text: editBlocked }] };
     const guarded = guardWorkspacePath(file);
     if (!guarded.allowed) return { isError: true, content: [{ type: 'text', text: guarded.error }] };
     if (!fs.existsSync(guarded.absPath)) {
@@ -89,6 +100,8 @@ function buildServer(hooks: McpHooks): McpServer {
     proposedContent: z.string(),
     reason: z.string(),
   }, async ({ path: file, proposedContent, reason }: { path: string; proposedContent: string; reason: string }) => {
+    const editBlocked = hooks.editBlockedReason?.();
+    if (editBlocked) return { isError: true, content: [{ type: 'text', text: editBlocked }] };
     const guarded = guardWorkspacePath(file);
     if (!guarded.allowed) return { isError: true, content: [{ type: 'text', text: guarded.error }] };
     // Whole-file rewrites of existing files silently drop content the model never read
@@ -111,7 +124,16 @@ function buildServer(hooks: McpHooks): McpServer {
     }
   });
 
+  (server as any).tool('submit_changes', {
+    summary: z.string(),
+  }, async ({ summary }: { summary: string }) => {
+    hooks.onSubmitChanges?.(summary);
+    return { content: [{ type: 'text', text: 'Changes submitted for Voltix human review.' }] };
+  });
+
   (server as any).tool('run_command', { command: z.string(), cwd: z.string().optional() }, async ({ command, cwd }: { command: string; cwd?: string }) => {
+    const commandBlocked = hooks.commandBlockedReason?.();
+    if (commandBlocked) return { isError: true, content: [{ type: 'text', text: commandBlocked }] };
     const root = getWorkspaceRoot();
     const resolvedCwd = cwd ? path.resolve(root, cwd) : root;
     if (resolvedCwd !== root && !resolvedCwd.startsWith(root + path.sep)) {

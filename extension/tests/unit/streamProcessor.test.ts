@@ -1,5 +1,5 @@
 import type { TrueForge } from '@truefoundry/trueforge-sdk';
-import { processTurn } from '../../src/agent/streamProcessor';
+import { formatToolSummary, processTurn } from '../../src/agent/streamProcessor';
 import type { PanelOutboundMessage } from '../../../shared/types';
 
 function fakeClient(events: unknown[]) {
@@ -75,9 +75,25 @@ test('emits observed tool requests and results without claiming an unknown error
     type: 'tool_done',
     id: 'tool-1',
     name: 'read_file',
+    summary: 'read_file src/app.ts → lines 1-1 of 1',
     resultPreview: 'source contents',
   });
   expect(messages).toContainEqual({ type: 'turn_done', status: 'done' });
+});
+
+test('formats concise summaries for search, edits, and verification', () => {
+  expect(formatToolSummary('search_workspace', '{"query":"def routes"}', 'a.py:1\nb.py:2'))
+    .toBe("search_workspace 'def routes' → 2 matches");
+  expect(formatToolSummary('edit_file', '{"path":"src/app.py","old_string":"old\\n","new_string":"new\\nmore\\n"}', 'Edit registered for review (not written to disk yet).'))
+    .toBe('edit_file src/app.py → +2 −1 (proposal, nothing on disk)');
+  expect(formatToolSummary('verify_changes', '{}', 'PASSED: 60 passed in 1.2s\nCommand: pytest'))
+    .toBe('verify_changes → 60 passed in 1.2s');
+  expect(formatToolSummary('list_tools', '{}', ''))
+    .toBe('Discovered tools on voltix (deferred loading)');
+  expect(formatToolSummary('get_tool_info', '{"tool_name":"search_workspace"}', ''))
+    .toBe('Loaded schema: search_workspace');
+  expect(formatToolSummary('call_tool', '{"tool_name":"search_workspace","arguments":{"query":"FlaskGroup"}}', ''))
+    .toBe("search 'FlaskGroup'");
 });
 
 test('reports an unexpected stream end instead of inventing a successful completion', async () => {
@@ -87,6 +103,80 @@ test('reports an unexpected stream end instead of inventing a successful complet
     type: 'turn_done',
     status: 'error',
     message: 'The event stream ended without a terminal turn event.',
+  });
+});
+
+test('emits SDK user approval decisions as UI activity updates', async () => {
+  const messages: PanelOutboundMessage[] = [];
+  const client = fakeClient([
+    {
+      type: 'user.tool_approval',
+      id: 'approval-event-1',
+      createdAt: '2026-01-01',
+      threadId: 'thread-1',
+      toolCallId: 'approval-1',
+      approval: { status: 'deny', reason: 'User rejected the changes' },
+    },
+  ]);
+  await processTurn(client, 'session-1', 'implement', message => messages.push(message));
+  expect(messages).toContainEqual({
+    type: 'approval_decision',
+    toolCallId: 'approval-1',
+    decision: 'deny',
+    reason: 'User rejected the changes',
+  });
+});
+
+test('emits submit_changes approval-required events and compaction completions', async () => {
+  const messages: PanelOutboundMessage[] = [];
+  const client = fakeClient([
+    {
+      type: 'turn.created',
+      turnId: 'turn-1',
+      threadId: 'thread-1',
+      id: 'created-1',
+      createdAt: '2026-01-01',
+      state: { status: 'running' },
+      previousTurnId: null,
+    },
+    {
+      type: 'model.message',
+      id: 'message-1',
+      threadId: 'thread-1',
+      toolCalls: [{
+        id: 'approval-1',
+        function: { name: 'submit_changes', arguments: '{"summary":"Add config command"}' },
+      }],
+    },
+    {
+      type: 'tool.approval_required',
+      id: 'approval-required-1',
+      createdAt: '2026-01-01',
+      threadId: 'thread-1',
+      toolCalls: [{ id: 'approval-1', sourceEventId: 'message-1' }],
+    },
+    {
+      type: 'thread.context_compaction_finished',
+      id: 'compaction-1',
+      createdAt: '2026-01-01',
+      threadId: 'thread-1',
+      trigger: { type: 'context_threshold_exceeded', contextTokens: 72000, thresholdTokens: 70000 },
+      durationMs: 12,
+      usage: { promptTokens: 72000, completionTokens: 100, totalTokens: 72100 },
+    },
+  ]);
+  await processTurn(client, 'session-1', 'implement', message => messages.push(message));
+  expect(messages).toContainEqual({
+    type: 'approval_required',
+    toolCallId: 'approval-1',
+    threadId: 'thread-1',
+    turnId: 'turn-1',
+    summary: 'Add config command',
+  });
+  expect(messages).toContainEqual({
+    type: 'context_compacted',
+    triggerContextTokens: 72000,
+    thresholdTokens: 70000,
   });
 });
 

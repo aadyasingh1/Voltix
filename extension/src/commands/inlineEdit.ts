@@ -1,11 +1,14 @@
 import * as vscode from 'vscode';
+import * as path from 'node:path';
 import { createSession } from '../agent/session';
-import { getModelChain } from '../config/settings';
+import { getModelChain, getSettings } from '../config/settings';
 import { guardWorkspacePath } from '../tools/pathGuard';
 import { PendingChanges } from '../review/pendingChanges';
-import { applyAndRecord } from '../review/undoStack';
 import { VoltixDiffProvider } from '../review/diffProvider';
 import { getLogger } from '../utils/logger';
+import { assembleContext } from '../context/retriever';
+import { resolveSymbol } from '../context/symbolResolver';
+import { startInlineHunkSession, setInlineGenerationCancel } from '../review/inlineHunkSession';
 
 /**
  * Inline Edit: the user selects code, presses the keybinding and types an instruction.
@@ -13,7 +16,11 @@ import { getLogger } from '../utils/logger';
  * (edit_file / propose_file_change), so nothing is written to disk until the user accepts.
  * If the configured model fails, the next model in voltix.fallbackModels is used automatically.
  */
-export async function runInlineEdit(provider: VoltixDiffProvider) {
+export async function runInlineEdit(provider: VoltixDiffProvider, onRemoved?: (changeId: string) => void, refresh?: () => void) {
+  const drop = (changeId: string) => {
+    PendingChanges.remove(changeId);
+    onRemoved?.(changeId);
+  };
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
     vscode.window.showWarningMessage('Voltix: open a file and select some code first.');
@@ -49,11 +56,24 @@ export async function runInlineEdit(provider: VoltixDiffProvider) {
     `Call edit_file with path "${rel}", old_string = the exact selected code above (or the exact part of it you change), new_string = the replacement, and a short reason.`,
     'Do not change anything outside the selection. Do not print code in chat. After proposing, reply with one short sentence.',
   ].join('\n');
+  const symbolContext = await assembleContext(instruction, workspaceRoot, getSettings().contextTokenBudget, resolveSymbol);
+  const pinnedContext = symbolContext.items
+    .filter(item => item.signals.includes('pinned_symbol'))
+    .map(item => `${item.path}:${item.startLine + 1}-${item.endLine + 1}\n${item.content}`)
+    .join('\n\n');
+  const enrichedPrompt = pinnedContext ? prompt + '\n\nPinned @symbol context:\n' + pinnedContext : prompt;
 
   const models = getModelChain();
   const errors: string[] = [];
   let change: ReturnType<typeof PendingChanges.get>;
   let cancelled = false;
+  void vscode.commands.executeCommand('setContext', 'voltix.inlineSessionActive', true);
+  const generationStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+  generationStatus.text = 'Voltix is editing…';
+  generationStatus.show();
+  setInlineGenerationCancel(() => {
+    cancelled = true;
+  });
 
   await vscode.window.withProgress(
     { location: vscode.ProgressLocation.Notification, title: `Voltix: inline edit for ${rel}`, cancellable: true },
@@ -68,10 +88,14 @@ export async function runInlineEdit(provider: VoltixDiffProvider) {
             cancelled = true;
             void client.sessions.cancel(sessionId, {}).catch(() => undefined);
           });
+          setInlineGenerationCancel(() => {
+            cancelled = true;
+            void client.sessions.cancel(sessionId, {}).catch(() => undefined);
+          });
           let turnError: string | undefined;
           try {
             const stream = await client.sessions.createTurnStream(sessionId, {
-              input: [{ type: 'user.message', content: prompt }],
+              input: [{ type: 'user.message', content: enrichedPrompt }],
             });
             for await (const event of stream) {
               if (event.type === 'turn.done') {
@@ -92,6 +116,9 @@ export async function runInlineEdit(provider: VoltixDiffProvider) {
           const message = error instanceof Error ? error.message : String(error);
           errors.push(`${model}: ${message}`);
           getLogger().appendLine(`Inline edit with ${model} failed: ${message}`);
+          PendingChanges.getAll()
+            .filter(item => item.path === rel || item.absPath === guarded.absPath)
+            .forEach(item => PendingChanges.remove(item.id));
           if (index < models.length - 1 && !cancelled) {
             void vscode.window.showWarningMessage(
               `Voltix: model "${model}" failed (${message}). Switching automatically to "${models[index + 1]}".`
@@ -101,9 +128,11 @@ export async function runInlineEdit(provider: VoltixDiffProvider) {
       }
     }
   );
+  generationStatus.dispose();
+  setInlineGenerationCancel(undefined);
 
   if (cancelled) {
-    if (change) PendingChanges.remove(change.id);
+    if (change) drop(change.id);
     vscode.window.showInformationMessage('Voltix: inline edit cancelled. No files were changed.');
     return;
   }
@@ -114,38 +143,14 @@ export async function runInlineEdit(provider: VoltixDiffProvider) {
     return;
   }
   if (change.hunks.length === 0) {
-    PendingChanges.remove(change.id);
+    drop(change.id);
     vscode.window.showInformationMessage('Voltix: the agent proposed no actual changes.');
     return;
   }
 
-  // Original (left) vs proposed (right). The real file is untouched until the user accepts.
-  const right = provider.set(change.id, change.proposedContent);
+  // Original (left) vs proposed (right). The real file stays untouched until hunk/file review is complete.
+  const right = provider.set(change.id, change.proposedContent, path.extname(change.path) || '.txt', change.id);
   await vscode.commands.executeCommand('vscode.diff', editor.document.uri, right, `Voltix Inline Edit: ${rel} (${change.hunks.length} hunk${change.hunks.length === 1 ? '' : 's'})`);
-
-  const choice = await vscode.window.showInformationMessage(
-    `Voltix: ${change.reason || instruction}`,
-    'Accept & Apply',
-    'Review Hunks',
-    'Reject'
-  );
-
-  if (choice === 'Accept & Apply') {
-    PendingChanges.acceptFile(change.id);
-    const result = applyAndRecord([change]);
-    if (result.applied.length) {
-      const undo = await vscode.window.showInformationMessage(`Voltix: applied inline edit to ${rel}.`, 'Undo');
-      if (undo === 'Undo') await vscode.commands.executeCommand('voltix.undoLastApply');
-    } else if (result.conflicts.length) {
-      vscode.window.showErrorMessage(`Voltix: ${rel} changed since the edit was proposed. Nothing was written.`);
-    } else {
-      vscode.window.showErrorMessage(`Voltix: could not apply the edit to ${rel}. Nothing was written.`);
-    }
-  } else if (choice === 'Review Hunks') {
-    // Per-hunk accept/reject happens in the Voltix panel, then Apply Accepted.
-    await vscode.commands.executeCommand('voltix.openPanel');
-  } else {
-    PendingChanges.remove(change.id);
-    vscode.window.showInformationMessage('Voltix: inline edit rejected. No files were modified.');
-  }
+  startInlineHunkSession(change, editor, provider, onRemoved, undefined, refresh);
+  void vscode.window.showInformationMessage(`Voltix: inline edit ready for hunk review in ${rel}. No files were modified.`);
 }

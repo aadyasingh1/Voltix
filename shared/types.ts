@@ -1,22 +1,25 @@
-export type ContextSignal = 'explicit_mention' | 'symbol_match' | 'keyword_match' | 'filename_match' | 'import_relationship' | 'recency';
+export type ContextSignal = 'explicit_mention' | 'symbol_match' | 'pinned_symbol' | 'keyword_match' | 'filename_match' | 'import_relationship' | 'recency';
 
 export interface ContextItem {
   path: string;
   absPath: string;
+  symbolName?: string;
   startLine: number;
   endLine: number;
   content: string;
   signals: ContextSignal[];
   score: number;
   tokenEstimate: number;
+  reason?: string;
 }
 
 export interface ContextReceipt {
   items: ContextItem[];
   excluded: number;
+  searchedCount: number;
   excludedItems?: Array<{
     path: string;
-    reason: 'context_budget';
+    reason: string;
   }>;
   totalTokens: number;
   budget: number;
@@ -84,11 +87,61 @@ export interface ChangePassport {
 
 export type VerifyPhase = 'running' | 'passed' | 'failed' | 'fixing' | 'skipped';
 
+export type FutureId = 'A' | 'B';
+export type FuturePhase = 'planning' | 'implementing' | 'verifying' | 'fixing' | 'probing' | 'done' | 'failed';
+
+export interface FutureStrategy {
+  id: FutureId;
+  title: string;
+  approach: string;
+  tradeoff: string;
+}
+
+export interface FutureProbeResult {
+  command: string;
+  exitCode: number;
+  passed: boolean;
+  timedOut: boolean;
+  /** Last 3000 characters of combined output. */
+  output: string;
+}
+
+/** Measured facts about one future. Nothing here is estimated by a model. */
+export interface FutureEvidence {
+  futureId: FutureId;
+  strategy: FutureStrategy;
+  status: 'completed' | 'failed';
+  error?: string;
+  tests: { ran: boolean; passed: boolean; summary: string; command?: string };
+  fixRounds: number;
+  filesChanged: string[];
+  added: number;
+  removed: number;
+  newImports: string[];
+  risk: RiskLevel;
+  flags: string[];
+  blastRadius: number;
+  probe: FutureProbeResult | null;
+  durationMs: number;
+  model?: string;
+}
+
+export interface ComparisonRow {
+  key: string;
+  label: string;
+  a: string;
+  b: string;
+  /** The future with the better value, or null for a tie or when the values cannot be compared. */
+  better: FutureId | null;
+}
+
 export type PanelOutboundMessage =
   | { type: 'text_delta'; content: string }
   | { type: 'text_done'; fullContent: string }
+  | { type: 'chat_message'; role: 'user' | 'assistant'; content: string }
+  | { type: 'model_status'; content: string }
   | { type: 'tool_start'; id: string; name: string; argsPreview: string; status?: 'requested' | 'approval_required' }
-  | { type: 'tool_done'; id: string; name?: string; resultPreview: string; isError?: boolean }
+  | { type: 'tool_done'; id: string; name?: string; summary?: string; resultPreview: string; isError?: boolean }
   | { type: 'context_receipt'; receipt: ContextReceipt }
   | { type: 'pending_change'; change: PendingChange }
   | { type: 'change_removed'; changeId: string }
@@ -97,6 +150,10 @@ export type PanelOutboundMessage =
   | { type: 'error'; message: string; recoverable: boolean }
   | { type: 'busy'; busy: boolean; label?: string }
   | { type: 'model_info'; model: string; fallbackFrom?: string }
+  | { type: 'model_chain'; models: string[]; active: string }
+  | { type: 'connection_status'; connected: boolean; baseUrl: string; error?: string }
+  | { type: 'session_state'; sessionId?: string }
+  | { type: 'safety_proof'; kind: 'stopped' | 'failed' | 'discarded'; elapsedMs?: number; cancelConfirmed?: boolean; clean: boolean; files: string[]; error?: string }
   | {
       type: 'verification';
       phase: VerifyPhase;
@@ -109,6 +166,25 @@ export type PanelOutboundMessage =
       durationMs?: number;
     }
   | { type: 'passport'; passport: ChangePassport | null }
+  | { type: 'futures_config'; probeCommand: string }
+  | { type: 'futures_plan'; strategies: FutureStrategy[]; usedFallback: boolean }
+  | { type: 'future_progress'; futureId: FutureId; phase: FuturePhase; label: string }
+  | { type: 'future_result'; futureId: FutureId; evidence: FutureEvidence; passport: ChangePassport | null; changes: PendingChange[] }
+  | { type: 'futures_compare'; rows: ComparisonRow[] }
+  | { type: 'regret'; futureId: FutureId; gain: string[]; giveUp: string[]; regretIf: string[]; source: 'model' | 'evidence' }
+  | { type: 'futures_chosen'; futureId: FutureId; otherId: FutureId }
+  | { type: 'futures_cleared' }
+  | { type: 'run_started'; mode: 'agent' | 'futures' }
+  | { type: 'change_decision'; change: PendingChange }
+  | { type: 'review_reset' }
+  | { type: 'history_state'; canUndo: boolean; files: string[] }
+  | { type: 'recent_runs'; runs: string[] }
+  | { type: 'approval_required'; toolCallId: string; threadId: string; turnId: string; summary: string }
+  | { type: 'approval_decision'; toolCallId: string; decision: 'allow' | 'deny'; reason?: string }
+  | { type: 'context_compacted'; triggerContextTokens: number; thresholdTokens: number }
+  | { type: 'mention_suggestions'; query: string; files: string[]; symbols: Array<{ name: string; kind: string; path: string; line: number }> }
+  | { type: 'focus_section'; section: 'futures' }
+  | { type: 'replay_boundary'; phase: 'start' | 'end' }
   | {
       type: 'apply_result';
       success: boolean;
@@ -122,14 +198,26 @@ export type PanelOutboundMessage =
 
 export type PanelInboundMessage =
   | { type: 'submit'; text: string }
-  | { type: 'cancel' }
+  | { type: 'cancel'; requestedAt?: number }
   | { type: 'accept_file'; changeId: string }
   | { type: 'reject_file'; changeId: string }
   | { type: 'accept_hunk'; changeId: string; hunkId: string }
   | { type: 'reject_hunk'; changeId: string; hunkId: string }
   | { type: 'apply_accepted' }
   | { type: 'discard_all' }
-  | { type: 'copy_passport' };
+  | { type: 'approval_allow'; toolCallId: string }
+  | { type: 'approval_deny'; toolCallId: string }
+  | { type: 'mention_query'; query: string }
+  | { type: 'copy_passport' }
+  | { type: 'panel_ready' }
+  | { type: 'explore_futures'; text: string; probeCommand?: string }
+  | { type: 'choose_future'; futureId: FutureId }
+  | { type: 'discard_futures' }
+  | { type: 'open_diff'; changeId: string; futureId?: FutureId }
+  | { type: 'open_in_editor' }
+  | { type: 'open_compare' }
+  | { type: 'undo_last' }
+  | { type: 'open_session' };
 
 export interface WorkspaceFile { path: string; absPath: string; sizeBytes: number; language: string }
 export interface SearchResult { path: string; absPath: string; line: number; column: number; lineContent: string }

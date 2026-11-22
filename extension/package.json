@@ -4,35 +4,54 @@
   "description": "Voltix is a transparent, surgical AI coding agent.",
   "version": "1.0.0",
   "publisher": "trueforge",
+  "icon": "media/icon.png",
   "engines": { "vscode": "^1.95.0" },
   "categories": ["Programming Languages", "AI"],
   "activationEvents": ["onStartupFinished", "onCommand:voltix.openPanel", "onCommand:voltix.inlineEdit"],
   "main": "./dist/extension.js",
   "contributes": {
+    "configurationDefaults": {
+      "diffEditor.codeLens": true
+    },
+    "viewsContainers": {
+      "activitybar": [
+        { "id": "voltix", "title": "Voltix", "icon": "media/voltix.svg" }
+      ]
+    },
+    "views": {
+      "voltix": [
+        { "type": "webview", "id": "voltix.agentView", "name": "Agent" }
+      ]
+    },
     "commands": [
       { "command": "voltix.openPanel", "title": "Voltix: Open Agent Panel" },
+      { "command": "voltix.openInEditor", "title": "Voltix: Open in Editor" },
       { "command": "voltix.inlineEdit", "title": "Voltix: Inline Edit" },
       { "command": "voltix.applyAccepted", "title": "Voltix: Apply Accepted Changes" },
       { "command": "voltix.rejectInlineEdit", "title": "Voltix: Reject Inline Edit" },
       { "command": "voltix.acceptInlineEdit", "title": "Voltix: Accept Inline Edit" },
       { "command": "voltix.discardAll", "title": "Voltix: Discard All Changes" },
-      { "command": "voltix.undoLastApply", "title": "Voltix: Undo Last Apply" }
+      { "command": "voltix.undoLastApply", "title": "Voltix: Undo Last Apply" },
+      { "command": "voltix.cancelInlineEdit", "title": "Voltix: Cancel Inline Edit" }
     ],
     "keybindings": [
       { "command": "voltix.openPanel", "key": "ctrl+shift+a", "mac": "cmd+shift+a" },
       { "command": "voltix.inlineEdit", "key": "ctrl+alt+e", "mac": "ctrl+cmd+e", "when": "editorTextFocus" },
-      { "command": "voltix.undoLastApply", "key": "ctrl+alt+z", "mac": "ctrl+cmd+z" }
+      { "command": "voltix.undoLastApply", "key": "ctrl+alt+z", "mac": "ctrl+cmd+z" },
+      { "command": "voltix.cancelInlineEdit", "key": "escape", "when": "voltix.inlineSessionActive" }
     ],
     "configuration": {
       "title": "Voltix",
       "properties": {
         "voltix.baseUrl": { "type": "string", "default": "http://localhost:8790", "description": "TrueForge server URL" },
+        "voltix.sessionUrlTemplate": { "type": "string", "default": "{baseUrl}/sessions/{id}", "description": "Browser URL template for opening the current TrueForge session. Supports {baseUrl} and {id}." },
         "voltix.model": { "type": "string", "default": "openrouter/north-mini-code", "description": "Primary model, as named in TrueForge (provider/model)" },
         "voltix.fallbackModels": { "type": "array", "items": { "type": "string" }, "default": [], "description": "Models tried automatically, in order, if the primary model fails (provider/model as named in TrueForge)" },
         "voltix.contextTokenBudget": { "type": "number", "default": 8000, "minimum": 500 },
         "voltix.verify.enabled": { "type": "boolean", "default": true, "description": "Verify-before-apply: run the tests against the agent's pending changes in a sandbox copy and send failures back to the agent automatically." },
         "voltix.verify.command": { "type": "string", "default": "", "description": "Test command used for verification (e.g. python -m pytest -q). Empty: use the command the agent chose, or infer one." },
-        "voltix.verify.maxFixRounds": { "type": "number", "default": 2, "minimum": 0, "maximum": 5, "description": "How many times Voltix sends failing test output back to the agent before handing the result to you." }
+        "voltix.verify.maxFixRounds": { "type": "number", "default": 2, "minimum": 0, "maximum": 5, "description": "How many times Voltix sends failing test output back to the agent before handing the result to you." },
+        "voltix.futures.probeCommand": { "type": "string", "default": "", "description": "Optional behaviour probe run in each future's sandbox (python, flask, node, pytest or npm run/test; no chaining, pipes or redirection). Example: flask --app /tmp/hello.py config" }
       }
     }
   },
