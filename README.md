@@ -1,3 +1,4 @@
+<img width="1600" height="900" alt="voltix-banner" src="https://github.com/user-attachments/assets/3107e093-a640-4560-8cce-3926b6d084be" />
 
 <div align="center">
 
@@ -20,13 +21,11 @@
 
 ## See Voltix in action
 
-<div align="center">
 
-<img src="docs/voltix-demo.gif" width="900" alt="Voltix coding agent running inside VS Code" />
 
-<sub>Voltix in action — from repository context to reviewed code changes.</sub>
+https://github.com/user-attachments/assets/b21b3f78-f058-4004-893f-930c5f028bee
 
-</div>
+
 
 ## Why Voltix?
 
