@@ -8,6 +8,8 @@
 
 **Repository-aware context · TrueForge orchestration · Review-first edits**
 
+Team TM-CFAD402C48C · Aadya Singh (@aadyasingh1) · Ananya Sharma (@ananya230107) — Manipal University Jaipur
+
 [![VS Code](https://img.shields.io/badge/VS_Code-Extension-252A34?logo=visualstudiocode&logoColor=white)](https://code.visualstudio.com/)
 [![TrueForge](https://img.shields.io/badge/Powered_by-TrueForge-252A34)](https://github.com/truefoundry/trueforge)
 [![MCP](https://img.shields.io/badge/Protocol-MCP-252A34)](https://modelcontextprotocol.io/)
@@ -49,7 +51,7 @@ TrueForge runs the agent loop; VS Code provides scoped workspace tools and a hum
 
 Voltix makes context selection visible.
 
-Explicit `@file` and `@symbol` references work alongside automatic keyword-based retrieval. A configurable context budget defaults to **8,000 estimated tokens**.
+Explicit `@file` and `@symbol` references work alongside automatic keyword-based retrieval. A configurable context budget defaults to **8,000 estimated tokens** (the demo runs with 3,000).
 
 The context receipt shows which files were selected and why.
 
@@ -171,8 +173,22 @@ The TrueForge backend is expected at:
 | `run_command` | Execute permitted commands with confirmation and limits. |
 | `edit_file` | Targeted editing workflow referenced by the agent definition. |
 | `verify_changes` | Pending-change verification workflow referenced by the agent definition. |
+| `submit_changes` | Hands verified changes to the user; requires TrueForge approval, which drives the hunk review. |
 
-The original extension documentation describes five core MCP tools. The committed agent definition additionally references `edit_file` and `verify_changes`; their availability should be confirmed in the running build.
+---
+
+## TrueForge features used
+
+| Feature | How Voltix uses it |
+| --- | --- |
+| Named sessions and turns | One TrueForge session per task, opened from the sidebar. |
+| Streamed events | Tokens and tool calls render live; the editor never blocks. |
+| MCP tools | 8 editor tools served from `127.0.0.1:7891`. |
+| Tool approval | `require_approval_for_tools: ["submit_changes"]`; Apply approves and Discard denies through the SDK. |
+| Deferred tool loading | `preload: false` with write tools in `preload_tools`; read tools are discovered on demand. |
+| Cancellation | `sessions.cancel` on Stop; pending edits dropped, nothing half-applied. |
+| Resilience | Primary model failure → automatic switch to `voltix.fallbackModels`, no clicks. |
+| Outbound guard | Kept on, only `127.0.0.1` allowed. |
 
 ---
 
@@ -278,44 +294,18 @@ These protections reduce risk but do not guarantee that arbitrary model-generate
 
 ---
 
-## Forge-a-thon evaluation
+## Scorecard (demo video)
 
-Voltix was developed for the **Techfest IIT Bombay × TrueFoundry Forge-a-thon 2026–27**.
-
-The official evaluation focuses on observable behavior across three fixed tasks.
-
-### Task A — Inline editing
-
-Update Flask's `get_debug_flag` function so that `off` and `n` are also treated as false, case-insensitively.
-
-The demonstration should show the generated diff, developer review and the verified result.
-
-### Task B — Multi-file agent workflow
-
-Ask the agent to introduce a `flask config` CLI command that prints application configuration as JSON while masking sensitive keys.
-
-The agent must discover the relevant files itself and produce changes spanning implementation, tests and documentation.
-
-The demonstration should include the TrueForge session and the resulting verification.
-
-### Task C — Resilience
-
-Configure an invalid or unreachable model endpoint and repeat the inline-edit task.
-
-The demonstration should show that the editor remains responsive, communicates the failure or fallback clearly, and leaves the workspace unchanged.
-
-### Evaluation criteria
-
-| Category | Maximum points |
-| --- | ---: |
-| Capability coverage | 30 |
-| Technical depth | 45 |
-| Presentation | 25 |
-| **Total** | **100** |
-
-This section describes the competition's evaluation requirements, not a claim that every maximum-scoring behavior has been demonstrated.
-
-Automatic model fallback, cancellation consistency, post-apply undo and advanced TrueForge context-engineering features should be verified against the current build before being advertised as completed.
+| Criterion | Video | What is shown |
+| --- | --- | --- |
+| A1 Inline edit | 0:33 | Diff in editor, accepted hunk by hunk; `FLASK_DEBUG=off` → `False` (0:49) |
+| A2 Agent mode | 2:03 | No files named; `cli.py`, `test_cli.py`, `docs/cli.rst` changed |
+| A3 Streaming & cancellation | 2:52 | Stop cancels the TrueForge session; `git status` clean (3:03) |
+| B1 Context | 1:06 | Budget, chosen files and reasons in the context card |
+| B2 Diff safety | 0:33 · 2:37 | Per-hunk review; Undo of an applied change |
+| B3 Resilience | 3:21 · 3:28 | 401 on the primary → automatic fallback; workspace unchanged (3:41) |
+| B4 TrueForge | 1:20 · 1:36 · 1:47 | Deferred tool loading, session view, `submit_changes` approval |
+| Verified | 2:20 · 2:24 · 2:28 | 60 tests passed, `config` in `flask --help`, `SECRET_KEY` masked |
 
 ---
 
@@ -374,11 +364,20 @@ npm test
 - [Model Context Protocol](https://modelcontextprotocol.io/)
 - TypeScript and Node.js
 
+## Known limitations
+
+- Keyword + import ranking (no embeddings or syntax index).
+- Fixed budget.
+- `@symbol` needs a language server.
+- Verify needs a test command.
+- Parallel Futures is beta.
+- Tested end to end on Flask only.
+
 ## License
 
 Voltix is distributed under the [MIT License](LICENSE).
 
-Any reused upstream code must retain the applicable license and attribution. The exact upstream fork point, if any, should be documented.
+Starting point: built from scratch — no upstream fork. Third-party code is used only as npm dependencies under their own licences.
 
 ## Acknowledgements
 
