@@ -1,259 +1,396 @@
+
+<div align="center">
+
 # Voltix
 
-**A transparent, surgical AI coding agent for VS Code — it proposes, you approve.**
+### A coding agent that shows its work before changing yours.
 
-[![VS Code extension](https://img.shields.io/badge/VS_Code-extension-007ACC?logo=visualstudiocode&logoColor=white)](https://code.visualstudio.com/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![MCP](https://img.shields.io/badge/MCP-workspace_tools-5B5FC7)](https://modelcontextprotocol.io/)
-[![TrueFoundry TrueForge](https://img.shields.io/badge/Backend-TrueFoundry_TrueForge-5B3CC4)](https://www.truefoundry.com/)
-[![Techfest 2026–27 Forge-a-thon](https://img.shields.io/badge/Techfest-2026%E2%80%9327_Forge--a--thon-111827)](https://techfest.org/)
+**Repository-aware context · TrueForge orchestration · Review-first edits**
 
-Many AI coding agents can make changes without a review step. Voltix assembles relevant workspace context, stages localized changes through MCP, and writes proposed code changes only after you accept them. Review changes by hunk or file before applying them.
+[![VS Code](https://img.shields.io/badge/VS_Code-Extension-252A34?logo=visualstudiocode&logoColor=white)](https://code.visualstudio.com/)
+[![TrueForge](https://img.shields.io/badge/Powered_by-TrueForge-252A34)](https://github.com/truefoundry/trueforge)
+[![MCP](https://img.shields.io/badge/Protocol-MCP-252A34)](https://modelcontextprotocol.io/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-252A34)](LICENSE)
 
-<!-- Record and add the Voltix demo GIF at docs/demo.gif. -->
-![Voltix demo](docs/demo.gif)
+[**Explore the demo**](#see-voltix-in-action) · [**Get started**](#quick-start) · [**Architecture**](#architecture) · [**Safety**](#safety-by-design)
 
-**Built for:** Techfest 2026–27 TrueFoundry Forge-a-thon.
+</div>
 
-## Features
+---
 
-| Feature | What it does |
-|---|---|
-| Agent Mode | Sends your task and selected workspace context to TrueForge, then presents proposed changes for review. |
-| Inline Edit | Uses the selected code and your instruction to request a proposal for the current file, then opens a side-by-side diff. |
-| Context Receipt | Shows selected files and excerpts, query terms, and token-budget information. Current retrieval labels items with `explicit_mention` or `keyword_match`. The shared type also reserves `filename_match`, `symbol_match`, `import_relationship`, and `recency`; those are not currently emitted by the retriever. |
-| MCP workspace tools | Gives TrueForge workspace listing, reading, searching, change-proposal, and allowlisted command tools through a loopback MCP server. |
-| Hunk-level review | Accept or reject individual hunks, or accept or reject a whole proposed file. |
-| Apply Accepted | Applies accepted hunks or accepted files after you explicitly choose to apply them. |
-| Conflict detection | Refuses to write a proposed change if the current file content no longer matches the content hash recorded when the proposal was created. |
-| Command safety | Restricts commands to an allowlist and shows a modal Run/Cancel confirmation before execution. |
-| Path guard | Workspace file operations reject paths outside the open workspace and detect symlink escapes. The command tool also restricts its working directory to the workspace. |
+## See Voltix in action
+
+<div align="center">
+
+<img src="docs/voltix-demo.gif" width="900" alt="Voltix coding agent running inside VS Code" />
+
+<sub>Voltix in action — from repository context to reviewed code changes.</sub>
+
+</div>
+
+## Why Voltix?
+
+An agent can produce a plausible patch while still reading the wrong code, touching unrelated files, or overwriting changes made after its proposal.
+
+Voltix treats these as engineering problems—not just prompt-writing problems.
+
+**The central idea is to separate what the agent recommends from what the editor commits.**
+
+TrueForge runs the agent loop; VS Code provides scoped workspace tools and a human review boundary. Developers can inspect retrieved context, review proposed changes and decide what gets applied.
+
+| Understand the context | Inspect the change | Control execution |
+| :--- | :--- | :--- |
+| See selected files, excerpts, retrieval reasons and token estimates. | Review individual hunks or entire files before applying. | Use conflict checks, command confirmation and workspace safeguards. |
+
+---
+
+## What makes Voltix different
+
+### 01 — Context receipts, not invisible retrieval
+
+Voltix makes context selection visible.
+
+Explicit `@file` and `@symbol` references work alongside automatic keyword-based retrieval. A configurable context budget defaults to **8,000 estimated tokens**.
+
+The context receipt shows which files were selected and why.
+
+Current retrieval labels include `explicit_mention` and `keyword_match`. Advanced symbol-aware and import-relationship ranking are not claimed as implemented.
+
+### 02 — Propose first, write later
+
+Voltix separates generating a change from applying it.
+
+In Agent Mode, proposed changes are staged for review. Developers can accept or reject individual hunks or entire files, then explicitly select **Apply Accepted**.
+
+The agent does not silently commit those proposed edits to the original workspace files.
+
+### 03 — Conflict-aware editing
+
+A proposal may become outdated while the developer is reviewing it.
+
+Voltix records a SHA-256 content hash when creating the proposal and compares it with the file's current hash before application.
+
+If the file has changed, the stale proposal is rejected rather than overwriting newer content.
+
+### 04 — Scoped agent execution
+
+Voltix's workspace tools operate within defined boundaries:
+
+- Workspace path containment
+- Symbolic-link escape detection
+- Command allowlisting
+- Explicit terminal-command confirmation
+- Execution timeouts
+- Bounded command output
+- Best-effort sensitive-output redaction
+
+These safeguards limit what an agent can access or execute through the exposed tools.
+
+### 05 — A committed TrueForge agent definition
+
+Voltix includes an actual [`agent-definition.json`](agent-definition.json).
+
+Its instructions describe a search-first workflow, localized editing, staged change proposals and verification of pending edits.
+
+This keeps the agent's intended behavior inspectable alongside the extension source.
+
+---
+
+## How Voltix works
+
+```mermaid
+flowchart LR
+    A["Developer request"] --> B["Context assembly"]
+    B --> C["TrueForge agent"]
+    C --> D["MCP workspace tools"]
+    D --> E["Staged proposals"]
+    E --> F{"Developer review"}
+    F -->|Reject| G["Discard"]
+    F -->|Accept| H["Apply Accepted"]
+    H --> I{"Content hash matches?"}
+    I -->|Yes| J["Apply changes"]
+    I -->|No| K["Stop: conflict"]
+```
+
+### Two ways to work
+
+| Mode | Workflow |
+| --- | --- |
+| **Inline Edit** | Select code, enter an instruction, inspect the editor diff, then accept/apply or reject. |
+| **Agent Mode** | Describe a repository-level task, let TrueForge discover relevant code, inspect proposed changes, then apply accepted edits. |
+
+---
 
 ## Architecture
 
 ```mermaid
-flowchart LR
-  subgraph VSCode["VS Code Extension"]
-    Panel["Agent Panel / Inline Edit"]
-    Context["Context retrieval"]
-    MCP["MCP Server<br/>127.0.0.1:7891"]
-    Review["Review & Apply"]
-  end
+flowchart TB
+    subgraph VS["VS Code Extension"]
+        UI["Agent Panel / Inline Edit"]
+        CTX["Context Selector"]
+        REVIEW["Diff Review"]
+        MCP["Local MCP Server"]
+    end
 
-  Backend["TrueForge backend<br/>localhost:8790"]
-  Model["Model provider<br/>e.g. OpenRouter"]
-  Workspace[("Workspace files")]
+    TF["TrueForge Agent Harness"]
+    MODEL["Configured Model Provider"]
+    FS[("Workspace Files")]
 
-  Panel -->|task| Context
-  Context -->|task + context| Backend
-  Backend -->|LLM call| Model
-  Backend -->|tool calls| MCP
-  MCP -->|read and search| Workspace
-  MCP -->|propose_file_change| Review
-  Review -->|Apply Accepted<br/>only after user accepts| Workspace
+    UI --> CTX
+    CTX --> TF
+    TF <--> MODEL
+    TF <-->|Tool calls| MCP
+    MCP <-->|Read and search| FS
+    MCP -->|Proposals| REVIEW
+    REVIEW -->|Approved edits| FS
 ```
 
-The extension is both a TrueForge client and an MCP server named `vscode-workspace`. Agent Mode sends the task and selected context to the TrueForge backend, which calls the configured model provider. When the backend needs workspace access, it calls the extension’s MCP server at `127.0.0.1:7891`. File-change proposals become pending review items; applying them to workspace files is a separate, explicit action.
+### Separation of responsibilities
 
-## MCP tools
+**TrueForge** owns agent sessions, model interaction and tool orchestration.
 
-| Tool | Purpose | Safety |
-|---|---|---|
-| `list_workspace_files` | Lists workspace files, optionally matching a glob pattern. | Excludes `node_modules` and `.git`; returns at most 500 paths. |
-| `read_file` | Reads a workspace file. | Applies workspace path and symlink checks. |
-| `search_workspace` | Searches supported text files for a query. | Excludes `node_modules` and `.git`; returns at most 200 matching paths. |
-| `propose_file_change` | Registers a proposed file change for review. | Does not write the file; the proposal waits for review and acceptance. |
-| `run_command` | Runs a command from the workspace. | Checks the command allowlist and working directory, asks for modal Run/Cancel confirmation, uses a 30-second timeout, caps each output stream at 10,000 characters, and scrubs output matching the secret pattern. |
+**Voltix** provides the editor interface, workspace context, MCP tools and review experience.
 
-The command allowlist patterns are:
+**The developer** controls whether proposed changes reach the workspace.
 
-```text
-^python\s
-^python3\s
-^pip\s+install\b
-^flask\b
-^pytest\b
-^npm\s+(test|run)\b
-^npx\b
-^git\s+(status|diff|log)\b
-```
+The local MCP endpoint is configured at:
 
-Command output scrubbing redacts values matched after `password`, `secret`, `token`, or `key` followed by `:` or `=`.
+`http://127.0.0.1:7891/mcp`
+
+The TrueForge backend is expected at:
+
+`http://localhost:8790`
+
+### Workspace tools
+
+| Tool | Responsibility |
+| --- | --- |
+| `list_workspace_files` | Discover files within the workspace. |
+| `search_workspace` | Search repository content for relevant matches. |
+| `read_file` | Read workspace files with path checks. |
+| `propose_file_change` | Stage file changes for review. |
+| `run_command` | Execute permitted commands with confirmation and limits. |
+| `edit_file` | Targeted editing workflow referenced by the agent definition. |
+| `verify_changes` | Pending-change verification workflow referenced by the agent definition. |
+
+The original extension documentation describes five core MCP tools. The committed agent definition additionally references `edit_file` and `verify_changes`; their availability should be confirmed in the running build.
+
+---
 
 ## Quick start
 
 ### Prerequisites
 
-- macOS or Linux
+- Visual Studio Code 1.95 or later
 - Node.js and npm
-- VS Code `^1.95.0`
-- An API key for a model provider. OpenRouter, for example, offers models with free-tier availability.
+- TrueForge running locally
+- A model provider configured in TrueForge
+- Provider credentials where required
 
-### 1. Clone and build the extension
+### 1. Clone Voltix
 
-```zsh
-git clone https://github.com/aadyasingh1/Trueforge.git
-cd Trueforge/extension && npm install && npm run compile
+```bash
+git clone https://github.com/aadyasingh1/Voltix.git
+cd Voltix/extension
+npm install
+npm run compile
 ```
 
-### 2. Start the TrueForge backend
+### 2. Start TrueForge
 
-In a separate terminal, start TrueForge with loopback access enabled:
+On macOS or Linux:
 
-```zsh
-OUTBOUND_URL_ALLOWED_HOSTS='["127.0.0.1"]' npx @truefoundry/trueforge
+```bash
+OUTBOUND_URL_ALLOWED_HOSTS='["127.0.0.1"]' npx @truefoundry/trueforge@latest
 ```
 
-TrueForge blocks outbound connections to loopback/private addresses by default. This setting allows the backend to reach the extension’s MCP server at `127.0.0.1` without allowing other hosts through this setting. Wait for:
+This allows TrueForge to connect to the extension's loopback MCP endpoint.
 
-```text
-Agent server listening on http://localhost:8790
-```
+The expected backend address is:
+
+`http://localhost:8790`
 
 ### 3. Launch the extension
 
-Open the repository root in VS Code and press **F5** using the **Run Voltix Extension** configuration in `.vscode/launch.json`. In the Extension Development Host, open the project folder you want Voltix to work in; the extension requires an open workspace folder.
+Open the Voltix repository in VS Code.
 
-### 4. Open the Voltix panel
+Press **F5** and select the **Run Voltix Extension** launch configuration.
 
-Open the panel with **Cmd+Shift+A** on macOS or **Ctrl+Shift+A** on Windows/Linux. This command activates the extension if needed; the extension also declares `onStartupFinished` activation. The MCP server starts during extension activation.
+In the Extension Development Host, open the workspace you want Voltix to work with.
 
-### 5. Configure a model provider
+Open the Voltix panel using:
 
-In TrueForge, open [http://localhost:8790/settings](http://localhost:8790/settings) and go to **Models → Add Custom Provider**.
+- macOS: `Cmd+Shift+A`
+- Windows/Linux: `Ctrl+Shift+A`
 
-Example using OpenRouter:
+You can also use the VS Code Command Palette.
 
-| Field | Example |
-|---|---|
-| Name | `openrouter` |
-| Base URL | `https://openrouter.ai/api/v1` |
-| API key | Your provider API key |
-| Model ID | `cohere/north-mini-code:free` |
-| Model name | `north-mini-code` |
+### 4. Configure a model
 
-The full model name used by the extension is `openrouter/north-mini-code`.
+Open:
 
-### 6. Connect the extension’s MCP server
+`http://localhost:8790/settings`
 
-In TrueForge, go to **Settings → Connectors → Add MCP Server**:
+Configure your model provider under **Models**.
 
-| Field | Value |
-|---|---|
+The committed agent definition references `openrouter/north-mini-code`. Select a model that is available in your TrueForge configuration.
+
+Set `voltix.model` in VS Code to the corresponding configured model.
+
+### 5. Connect MCP
+
+In TrueForge, navigate to:
+
+**Settings → Connectors → Add MCP Server**
+
+| Setting | Value |
+| --- | --- |
 | Name | `vscode-workspace` |
 | URL | `http://127.0.0.1:7891/mcp` |
-| Auth type | `None` |
+| Authentication | None |
 
-The connector should show **Connected** with five tools.
+The connector should connect to the local extension server.
 
-### 7. Select the model in VS Code
+### 6. Start coding
 
-Set `voltix.model` to `openrouter/north-mini-code` in VS Code Settings.
+For **Inline Edit**, select a function and run **Voltix: Inline Edit** from the Command Palette.
 
-## Usage
+For **Agent Mode**, describe a task involving multiple parts of the repository without specifying every file.
 
-### Agent Mode
+Review the context and proposed changes before applying them.
 
-1. Open the Voltix panel and describe a task.
-2. Review the context receipt and proposed diff card.
-3. Accept or reject hunks, or accept or reject the whole file.
-4. Choose **Apply Accepted** to write accepted changes.
+---
 
-### Inline Edit
+## Safety by design
 
-1. Select code and run **Voltix: Inline Edit** from the Command Palette.
-2. Enter an instruction and review the side-by-side diff.
-3. Choose **Accept & Apply** or **Reject**.
+| Protection | Implementation |
+| --- | --- |
+| Review boundary | Proposed edits remain pending until approved. |
+| Conflict detection | SHA-256 content comparison before applying. |
+| Workspace isolation | Path containment and symlink checks. |
+| Command restrictions | Pattern-based allowlist. |
+| Execution approval | Explicit Run/Cancel confirmation. |
+| Timeout | Documented 30-second command limit. |
+| Output limits | Documented 10,000-character cap per output stream. |
+| Output redaction | Best-effort matching of common secret-related fields. |
+| Local connectivity | MCP server bound to loopback. |
 
-The configured **Cmd+Shift+I** shortcut may be used by Copilot Chat in newer VS Code versions; the Command Palette is the reliable way to run Inline Edit.
+These protections reduce risk but do not guarantee that arbitrary model-generated code is safe. Developers should inspect and test changes before relying on them.
 
-### Example
+---
 
-Given a `math.js` function with an off-by-one loop:
+## Forge-a-thon evaluation
 
-```js
-function average(numbers) {
-  let total = 0;
-  for (let i = 0; i <= numbers.length; i++) total += numbers[i];
-  return total / numbers.length;
-}
-```
+Voltix was developed for the **Techfest IIT Bombay × TrueFoundry Forge-a-thon 2026–27**.
 
-Voltix can propose the localized fix:
+The official evaluation focuses on observable behavior across three fixed tasks.
 
-```diff
--  for (let i = 0; i <= numbers.length; i++) total += numbers[i];
-+  for (let i = 0; i < numbers.length; i++) total += numbers[i];
-```
+### Task A — Inline editing
 
-## Configuration
+Update Flask's `get_debug_flag` function so that `off` and `n` are also treated as false, case-insensitively.
 
-| Setting | Default | Description |
-|---|---|---|
-| `voltix.baseUrl` | `http://localhost:8790` | URL of the TrueForge backend. |
-| `voltix.model` | `anthropic/claude-sonnet-4-6` | Configured provider and model name. |
-| `voltix.contextTokenBudget` | `8000` | Maximum token estimate for selected workspace context; minimum `500`. |
+The demonstration should show the generated diff, developer review and the verified result.
 
-## Safety model
+### Task B — Multi-file agent workflow
 
-- **Proposals before code writes:** MCP `propose_file_change` registers pending review data; it does not write the file.
-- **Explicit acceptance:** accepted hunks or a whole file must still be submitted through **Apply Accepted** to write changes. Inline Edit separately asks you to accept and apply.
-- **Conflict checks:** before applying, Voltix compares the current file’s SHA-256 content hash with the hash recorded for the proposal.
-- **Workspace path checks:** workspace file tools enforce workspace containment and check symlink destinations.
-- **Command controls:** commands must match the allowlist and receive an explicit modal Run confirmation. The command tool sets a 30-second timeout.
-- **Loopback binding:** the extension MCP HTTP server listens on `127.0.0.1`, not on all network interfaces.
+Ask the agent to introduce a `flask config` CLI command that prints application configuration as JSON while masking sensitive keys.
+
+The agent must discover the relevant files itself and produce changes spanning implementation, tests and documentation.
+
+The demonstration should include the TrueForge session and the resulting verification.
+
+### Task C — Resilience
+
+Configure an invalid or unreachable model endpoint and repeat the inline-edit task.
+
+The demonstration should show that the editor remains responsive, communicates the failure or fallback clearly, and leaves the workspace unchanged.
+
+### Evaluation criteria
+
+| Category | Maximum points |
+| --- | ---: |
+| Capability coverage | 30 |
+| Technical depth | 45 |
+| Presentation | 25 |
+| **Total** | **100** |
+
+This section describes the competition's evaluation requirements, not a claim that every maximum-scoring behavior has been demonstrated.
+
+Automatic model fallback, cancellation consistency, post-apply undo and advanced TrueForge context-engineering features should be verified against the current build before being advertised as completed.
+
+---
 
 ## Project structure
 
 ```text
-extension/src/
-├── agent/       TrueForge client sessions and stream processing
-├── commands/    Agent Mode and inline-edit commands
-├── config/      VS Code settings
-├── context/     Workspace scanning, retrieval, ranking, and mentions
-├── review/      Pending changes, diff hunks, conflict checks, and apply logic
-├── tools/       MCP server, path guard, and command handler
-├── ui/          Agent webview panel
-└── utils/       Logging and error helpers
-shared/
-└── types.ts     Shared context, hunk, change, and message types
-extension/tests/unit/
-               Jest unit tests
+Voltix/
+├── .vscode/
+├── config/
+├── docs/
+│   └── voltix-demo.gif
+├── extension/
+│   ├── src/
+│   │   ├── agent/
+│   │   ├── commands/
+│   │   ├── context/
+│   │   ├── review/
+│   │   ├── tools/
+│   │   └── ui/
+│   └── tests/unit/
+├── shared/
+├── agent-definition.json
+├── .env.example
+├── LICENSE
+└── README.md
 ```
+
+---
 
 ## Development
 
-Run commands from the extension directory:
+From the `extension` directory:
 
-```zsh
-cd extension
+```bash
 npm run compile
 npm run watch
 npm test
 ```
 
-`npm run compile` type-checks and bundles the extension. `npm run watch` watches TypeScript compilation. `npm test` runs the Jest unit tests in `extension/tests/unit`.
+### Troubleshooting
 
-## Troubleshooting
+| Problem | What to check |
+| --- | --- |
+| TrueForge cannot reach the MCP endpoint | Start TrueForge with the loopback allowance. |
+| `fetch failed` | Check whether TrueForge is running on port `8790`. |
+| No MCP tools available | Activate the extension and check the connector at port `7891`. |
+| Model responds but no proposed edits appear | Check MCP connectivity and model tool-calling support. |
+| No open workspace | Open a project folder in the Extension Development Host. |
 
-| Symptom | Fix |
-|---|---|
-| `Outbound URL blocked for host 127.0.0.1` | Start TrueForge with `OUTBOUND_URL_ALLOWED_HOSTS='["127.0.0.1"]'`. |
-| `fetch failed` | The TrueForge backend is not running on port `8790`; start or restart it. |
-| Port `7891` is not listening | Open the Voltix panel once to activate the extension, then check the MCP server output in VS Code. |
-| Check whether the backend and MCP server are listening | Run `lsof -nP -iTCP:8790 -iTCP:7891 -sTCP:LISTEN`. |
-| Agent replies in text but no diff appears | Check that the `vscode-workspace` connector is **Connected** and that the selected model supports tool calling. |
-| `Voltix requires an open workspace` | Open a folder in the Extension Development Host. |
+---
 
-## Roadmap
+## Built with
 
-- Show MCP tool calls live in the panel.
-- Add in-panel approval for `run_command`.
-- Create and document multi-file demo tasks.
-- Package the extension as a `.vsix`.
+- [TrueFoundry TrueForge](https://github.com/truefoundry/trueforge)
+- [Visual Studio Code Extension API](https://code.visualstudio.com/api)
+- [Model Context Protocol](https://modelcontextprotocol.io/)
+- TypeScript and Node.js
+
+## License
+
+Voltix is distributed under the [MIT License](LICENSE).
+
+Any reused upstream code must retain the applicable license and attribution. The exact upstream fork point, if any, should be documented.
 
 ## Acknowledgements
 
-Built with TrueFoundry TrueForge and the Model Context Protocol for the Techfest 2026–27 Forge-a-thon.
+Built for the **TrueFoundry Forge-a-thon at Techfest IIT Bombay 2026–27**.
 
-<!-- add team members -->
+Powered by TrueForge and the Model Context Protocol.
+
+---
+
+<div align="center">
+
+**Voltix — Code with control.**
+
+</div>
